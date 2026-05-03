@@ -1,0 +1,3352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Simulated Port Operations (Human vs Model Optimization)</title>
+<style>
+  :root {
+    --ink: #172332;
+    --muted: #617184;
+    --line: #d3dde6;
+    --panel: rgba(255,255,255,.94);
+    --soft: #f4f7f9;
+    --blue: #3d6f9d;
+    --blue-soft: #e1edf7;
+    --red: #b84e47;
+    --red-soft: #f7dfdc;
+    --amber: #bd7825;
+    --amber-soft: #f8ead7;
+    --teal: #137b78;
+    --teal-soft: #dff1ef;
+    --green: #368453;
+    --green-soft: #e1f1e7;
+    --dark: #253443;
+    --shadow: 0 18px 38px rgba(20,33,47,.14);
+  }
+
+  * { box-sizing: border-box; }
+
+  html,
+  body {
+    margin: 0;
+    min-height: 100%;
+  }
+
+  body {
+    position: relative;
+    font-family: "Segoe UI", Arial, sans-serif;
+    color: var(--ink);
+    background: #e8eef2;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    background:
+      linear-gradient(180deg, rgba(245,249,251,.82), rgba(226,235,240,.88)),
+      url("docs/formal_report/figures/terminal_overview.jpg") center 48% / cover no-repeat;
+  }
+
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: radial-gradient(circle at 72% 36%, rgba(255,255,255,.52), rgba(255,255,255,0) 34rem);
+    pointer-events: none;
+  }
+
+  button,
+  input {
+    font: inherit;
+  }
+
+  h1,
+  h2,
+  h3,
+  p {
+    margin: 0;
+  }
+
+  .app {
+    max-width: 1740px;
+    margin: 0 auto;
+    padding: 14px;
+  }
+
+  .card,
+  .metric,
+  .workflow,
+  .stage-shell,
+  .side-card {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--panel);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
+  }
+
+  .topbar {
+    display: grid;
+    grid-template-columns: minmax(360px, .95fr) minmax(560px, 1.25fr) 260px;
+    gap: 10px;
+    align-items: stretch;
+    margin-bottom: 10px;
+  }
+
+  .brand {
+    padding: 14px 16px;
+    display: grid;
+    align-content: center;
+    gap: 7px;
+  }
+
+  .eyebrow {
+    width: fit-content;
+    padding: 4px 9px;
+    border-radius: 999px;
+    color: var(--teal);
+    background: var(--teal-soft);
+    border: 1px solid #9ccfca;
+    font-size: 12px;
+    font-weight: 860;
+  }
+
+  h1 {
+    font-size: 26px;
+    line-height: 1.08;
+    letter-spacing: 0;
+  }
+
+  .brand p {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.42;
+  }
+
+  .metric-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .metric {
+    min-height: 96px;
+    padding: 12px;
+    display: grid;
+    align-content: center;
+    gap: 5px;
+    border-top: 4px solid var(--blue);
+    transition: transform .35s ease, box-shadow .35s ease;
+  }
+
+  .metric:nth-child(2) { border-top-color: var(--amber); }
+  .metric:nth-child(3) { border-top-color: var(--teal); }
+  .metric:nth-child(4) { border-top-color: var(--green); }
+
+  .metric label {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 860;
+    text-transform: uppercase;
+  }
+
+  .metric strong {
+    color: var(--dark);
+    font-size: 29px;
+    line-height: 1;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .metric span {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 780;
+  }
+
+  .control-card {
+    padding: 12px;
+    display: grid;
+    gap: 10px;
+  }
+
+  .clock-line {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .clock {
+    font-size: 30px;
+    line-height: 1;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .gain {
+    text-align: right;
+  }
+
+  .gain span {
+    display: block;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 860;
+    text-transform: uppercase;
+  }
+
+  .gain strong {
+    display: block;
+    color: var(--teal);
+    font-size: 24px;
+    line-height: 1;
+    font-weight: 900;
+  }
+
+  .buttons {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+
+  .buttons button,
+  .stage-button {
+    min-height: 34px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    color: #273747;
+    background: #fff;
+    font-weight: 840;
+    cursor: pointer;
+  }
+
+  .buttons .primary {
+    color: #fff;
+    background: var(--teal);
+    border-color: var(--teal);
+  }
+
+  .workflow {
+    margin-bottom: 10px;
+    padding: 10px 12px 12px;
+    display: grid;
+    gap: 10px;
+  }
+
+  .workflow input {
+    width: 100%;
+    accent-color: var(--teal);
+  }
+
+  .stage-buttons {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .stage-button {
+    display: grid;
+    grid-template-columns: 34px 1fr;
+    gap: 7px;
+    align-items: center;
+    min-height: 50px;
+    padding: 7px;
+    text-align: left;
+    color: var(--muted);
+    box-shadow: none;
+  }
+
+  .stage-button i {
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    color: #405366;
+    background: #e6edf2;
+    font-style: normal;
+    font-size: 12px;
+    font-weight: 900;
+  }
+
+  .stage-button strong {
+    display: block;
+    color: var(--ink);
+    font-size: 12px;
+    line-height: 1.15;
+  }
+
+  .stage-button small {
+    display: block;
+    margin-top: 2px;
+    font-size: 10px;
+    font-weight: 800;
+  }
+
+  .stage-button.active {
+    color: var(--teal);
+    border-color: #8acbc5;
+    background: var(--teal-soft);
+    transform: translateY(-1px);
+  }
+
+  .stage-button.active i {
+    color: #fff;
+    background: var(--teal);
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(820px, 1fr) 360px;
+    gap: 12px;
+    align-items: start;
+  }
+
+  .stage-shell {
+    padding: 12px;
+  }
+
+  .stage-head {
+    min-height: 44px;
+    display: grid;
+    grid-template-columns: 66px 1fr auto;
+    gap: 12px;
+    align-items: center;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .stage-no {
+    min-height: 34px;
+    display: grid;
+    place-items: center;
+    border-radius: 7px;
+    color: #fff;
+    background: var(--teal);
+    font-size: 13px;
+    font-weight: 900;
+  }
+
+  .stage-head h2 {
+    font-size: 18px;
+    line-height: 1.15;
+  }
+
+  .stage-head p {
+    margin-top: 3px;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .state-pill {
+    min-width: 126px;
+    min-height: 30px;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    color: var(--teal);
+    background: var(--teal-soft);
+    font-size: 12px;
+    font-weight: 900;
+  }
+
+  .stage-screen {
+    position: relative;
+    min-height: 662px;
+    margin-top: 12px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.35), rgba(245,248,250,.72)),
+      url("docs/formal_report/figures/terminal_overview.jpg") center 52% / cover no-repeat,
+      #e1eaf0;
+    isolation: isolate;
+  }
+
+  .stage-screen::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background: radial-gradient(circle at var(--focus-x, 72%) var(--focus-y, 52%), rgba(255,255,255,.22), rgba(30,45,58,.10) 26rem, rgba(30,45,58,.16) 46rem);
+    pointer-events: none;
+  }
+
+  .single-stage,
+  .split-stage,
+  .report-stage {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .45s ease;
+  }
+
+  .app[data-view="single"] .single-stage,
+  .app[data-view="split"] .split-stage,
+  .app[data-view="report"] .report-stage {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .single-stage {
+    padding: 16px;
+  }
+
+  .single-card {
+    --crane-c: #a9bfca;
+    position: relative;
+    height: 100%;
+    overflow: hidden;
+    border: 1px solid rgba(209,221,230,.78);
+    border-radius: 8px;
+    background: rgba(255,255,255,.52);
+  }
+
+  .split-stage {
+    padding: 14px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .pane {
+    --accent: var(--blue);
+    --accent-soft: var(--blue-soft);
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(211,221,230,.92);
+    border-radius: 8px;
+    background: rgba(255,255,255,.78);
+    box-shadow: 0 14px 28px rgba(18,31,44,.10);
+    transition: border-color .4s, box-shadow .4s, opacity .4s, transform .4s;
+  }
+
+  .pane.manual { --accent: var(--red); --accent-soft: var(--red-soft); --crane-c: #d9aaa5; --crane-rail-y: 27.5%; --cargo-pick-x: 87.5%; --cargo-pick-y: 34.5%; --cargo-lift-y: 33%; --cargo-drop-x: 86%; --cargo-drop-y: 53%; --cargo-drop2-x: 74%; --cargo-drop2-y: 84%; }
+  .pane.model { --accent: var(--teal); --accent-soft: var(--teal-soft); --crane-c: #98cfca; --crane-rail-y: 27.5%; --cargo-pick-x: 87.5%; --cargo-pick-y: 34.5%; --cargo-lift-y: 33%; --cargo-drop-x: 82%; --cargo-drop-y: 53%; --cargo-drop2-x: 74%; --cargo-drop2-y: 84%; }
+
+  .pane.dimmed {
+    opacity: .62;
+    transform: scale(.992);
+  }
+
+  .pane.active {
+    border-color: var(--accent);
+    box-shadow: 0 18px 34px rgba(19,35,49,.15), 0 0 0 3px rgba(19,123,120,.12);
+  }
+
+  .pane.manual.active {
+    box-shadow: 0 18px 34px rgba(19,35,49,.15), 0 0 0 3px rgba(184,78,71,.13);
+  }
+
+  .pane.model.active {
+    box-shadow: 0 18px 34px rgba(19,35,49,.15), 0 0 0 3px rgba(19,123,120,.12);
+  }
+
+  .pane-head {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    top: 12px;
+    z-index: 5;
+    min-height: 52px;
+    padding: 9px 10px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    align-items: center;
+    border: 1px solid rgba(211,221,230,.88);
+    border-radius: 8px;
+    background: rgba(255,255,255,.92);
+    backdrop-filter: blur(8px);
+  }
+
+  .pane-head strong {
+    display: block;
+    font-size: 15px;
+    line-height: 1.15;
+  }
+
+  .pane-head span {
+    display: block;
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 820;
+  }
+
+  .time-badge {
+    min-width: 70px;
+    min-height: 30px;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    color: var(--accent);
+    background: var(--accent-soft);
+    font-size: 12px;
+    font-weight: 900;
+  }
+
+  .work-map {
+    position: absolute;
+    inset: 0;
+  }
+
+  .map-sea {
+    position: absolute;
+    left: 0;
+    top: 18%;
+    width: 26%;
+    height: 82%;
+    background:
+      repeating-linear-gradient(165deg, rgba(255,255,255,.22) 0 2px, rgba(255,255,255,0) 2px 18px),
+      linear-gradient(180deg, rgba(91,139,179,.24), rgba(63,111,157,.14));
+  }
+
+  .quay {
+    position: absolute;
+    left: 24.6%;
+    top: 20%;
+    width: 3.8%;
+    height: 66%;
+    border-radius: 3px;
+    background: rgba(37,52,66,.84);
+  }
+
+  .ship {
+    position: absolute;
+    z-index: 2;
+    left: 2.4%;
+    top: 32.5%;
+    width: 21.3%;
+    height: 31%;
+    overflow: hidden;
+    border: 1.5px solid rgba(37,52,66,.50);
+    border-radius: 18px 28px 28px 18px;
+    background:
+      radial-gradient(ellipse at 90% 50%, rgba(255,255,255,.72) 0 8%, rgba(255,255,255,0) 9%),
+      linear-gradient(90deg, rgba(255,255,255,.95), rgba(235,242,246,.97) 55%, rgba(199,215,226,.98)),
+      linear-gradient(180deg, rgba(255,255,255,.98) 0 63%, rgba(188,207,219,.97) 64% 76%, rgba(76,104,124,.96) 77% 100%);
+    clip-path: polygon(7% 6%, 72% 6%, 99% 50%, 72% 94%, 7% 94%, 0 50%);
+    box-shadow:
+      0 15px 20px rgba(23,35,49,.22),
+      inset 0 -10px 0 rgba(51,76,96,.24),
+      inset 0 6px 0 rgba(255,255,255,.56),
+      inset -10px 0 18px rgba(75,96,115,.16);
+  }
+
+  .ship::before {
+    content: "";
+    position: absolute;
+    left: 4%;
+    right: 10%;
+    bottom: 7%;
+    height: 10%;
+    border-radius: 999px;
+    background:
+      repeating-linear-gradient(90deg, rgba(255,255,255,.24) 0 8px, rgba(255,255,255,0) 8px 16px),
+      rgba(48,70,88,.58);
+  }
+
+  .ship::after {
+    content: "";
+    position: absolute;
+    left: 8%;
+    top: 10%;
+    width: 72%;
+    height: 80%;
+    border-radius: 12px 22px 22px 12px;
+    background:
+      linear-gradient(90deg, transparent 0 68%, rgba(43,66,84,.20) 68% 70%, transparent 70%),
+      repeating-linear-gradient(0deg, transparent 0 16%, rgba(37,52,66,.10) 16% 18%),
+      repeating-linear-gradient(90deg, transparent 0 12%, rgba(37,52,66,.08) 12% 14%);
+    opacity: .82;
+  }
+
+  .ship .bridge {
+    position: absolute;
+    z-index: 2;
+    left: 11%;
+    top: 28%;
+    width: 19%;
+    height: 35%;
+    border: 1px solid rgba(37,52,66,.36);
+    border-radius: 6px 3px 3px 6px;
+    background:
+      repeating-linear-gradient(90deg, rgba(225,240,247,.96) 0 4px, rgba(48,69,89,.88) 4px 7px),
+      linear-gradient(180deg, #f8fbfd, #cedce6);
+    box-shadow:
+      4px 4px 0 rgba(255,255,255,.64),
+      4px 15px 0 rgba(215,228,237,.76),
+      11px 2px 0 rgba(37,52,66,.18);
+  }
+
+  .ship .bridge::after {
+    content: "";
+    position: absolute;
+    left: 24%;
+    top: -11px;
+    width: 24%;
+    height: 10px;
+    border-radius: 3px 3px 0 0;
+    background: #40586e;
+    box-shadow: 7px 2px 0 rgba(64,88,110,.75);
+  }
+
+  .ship .bridge::before {
+    content: "";
+    position: absolute;
+    left: 66%;
+    top: -16px;
+    width: 8px;
+    height: 16px;
+    border-radius: 3px 3px 0 0;
+    background: linear-gradient(180deg, #2f4659, #5d7485);
+    box-shadow: 0 -5px 0 -2px rgba(47,70,89,.76);
+  }
+
+  .ship .containers {
+    position: absolute;
+    z-index: 1;
+    left: 36%;
+    height: 11%;
+    border-radius: 2px;
+    border: 1px solid rgba(37,52,66,.22);
+    background:
+      repeating-linear-gradient(90deg, rgba(255,255,255,.22) 0 4px, rgba(255,255,255,0) 4px 9px),
+      var(--ship-row);
+    box-shadow: 0 2px 0 rgba(37,52,66,.12);
+  }
+
+  .ship .c1 {
+    top: 30%;
+    width: 44%;
+    --ship-row: linear-gradient(90deg, #bd4e47 0 30%, #3f6f9d 30% 64%, #368453 64% 100%);
+  }
+
+  .ship .c2 {
+    top: 44%;
+    left: 32%;
+    width: 51%;
+    --ship-row: linear-gradient(90deg, #d0a24a 0 24%, #3f6f9d 24% 56%, #bd4e47 56% 78%, #368453 78% 100%);
+  }
+
+  .ship .c3 {
+    top: 58%;
+    left: 39%;
+    width: 39%;
+    --ship-row: linear-gradient(90deg, #368453 0 38%, #bd4e47 38% 65%, #3f6f9d 65% 100%);
+  }
+
+  .ship .c4 {
+    top: 22%;
+    left: 47%;
+    width: 29%;
+    --ship-row: linear-gradient(90deg, #3f6f9d 0 33%, #d0a24a 33% 64%, #bd4e47 64% 100%);
+  }
+
+  .ship .c5 {
+    top: 72%;
+    left: 35%;
+    width: 42%;
+    --ship-row: linear-gradient(90deg, #bd4e47 0 22%, #368453 22% 55%, #3f6f9d 55% 100%);
+  }
+
+  .ship .deck-rail {
+    position: absolute;
+    z-index: 2;
+    left: 31%;
+    top: 22%;
+    width: 49%;
+    height: 2px;
+    border-radius: 999px;
+    background: rgba(48,70,88,.58);
+    box-shadow:
+      0 47px 0 rgba(48,70,88,.32),
+      10px 15px 0 rgba(255,255,255,.52),
+      30px 15px 0 rgba(255,255,255,.42);
+  }
+
+  .ship .bow-detail {
+    position: absolute;
+    z-index: 2;
+    right: 7%;
+    top: 37%;
+    width: 14%;
+    height: 26%;
+    border-left: 2px solid rgba(48,70,88,.36);
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 62% 50%, rgba(48,70,88,.42) 0 3px, transparent 4px),
+      linear-gradient(90deg, rgba(255,255,255,.28), rgba(255,255,255,0));
+  }
+
+  .ship .hull-stripe {
+    position: absolute;
+    z-index: 2;
+    left: 7%;
+    right: 13%;
+    bottom: 16%;
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(42,63,82,.60);
+    box-shadow: 0 5px 0 rgba(255,255,255,.28);
+  }
+
+  .road {
+    position: absolute;
+    z-index: 1;
+    left: 30%;
+    right: 8%;
+    height: 32px;
+    border-radius: 4px;
+    background:
+      repeating-linear-gradient(90deg, rgba(255,255,255,.52) 0 16px, rgba(255,255,255,0) 16px 30px),
+      rgba(57,72,86,.22);
+  }
+
+  .road.top { top: 49%; transform: none; }
+  .road.bottom { top: 75%; transform: none; }
+
+  .yard {
+    position: absolute;
+    z-index: 3;
+    width: 11%;
+    height: 11%;
+    display: grid;
+    place-items: center;
+    border: 1.5px solid rgba(45,60,76,.55);
+    border-radius: 7px;
+    color: #223242;
+    background:
+      repeating-linear-gradient(0deg, transparent 0 15px, rgba(46,60,74,.16) 15px 18px),
+      rgba(255,255,255,.70);
+    font-size: 20px;
+    font-weight: 900;
+    box-shadow: 0 7px 9px rgba(18,30,42,.12);
+    transition: background .45s, border-color .45s, box-shadow .45s, transform .45s;
+  }
+
+  .yard.watch {
+    border-color: var(--amber);
+    background:
+      repeating-linear-gradient(0deg, transparent 0 15px, rgba(189,120,37,.18) 15px 18px),
+      rgba(248,234,215,.92);
+  }
+
+  .yard.risk {
+    border-color: var(--red);
+    background:
+      repeating-linear-gradient(0deg, transparent 0 15px, rgba(184,78,71,.20) 15px 18px),
+      rgba(247,223,220,.94);
+    box-shadow: 0 0 0 4px rgba(184,78,71,.12), 0 12px 18px rgba(184,78,71,.16);
+    transform: translateY(-1px);
+  }
+
+  .yard.clear {
+    border-color: var(--green);
+    background:
+      repeating-linear-gradient(0deg, transparent 0 15px, rgba(54,132,83,.16) 15px 18px),
+      rgba(225,241,231,.94);
+  }
+
+  .yA { left: 32.5%; top: 29%; }
+  .yB { left: 49%; top: 29%; }
+  .yC { left: 65.5%; top: 29%; }
+  .yD { left: 82%; top: 29%; }
+  .yE { left: 32.5%; top: 61%; }
+  .yF { left: 49%; top: 61%; }
+  .yG { left: 65.5%; top: 61%; }
+  .yH { left: 82%; top: 61%; }
+
+  .yard.risk::after {
+    content: "";
+    position: absolute;
+    inset: -14px;
+    border: 3px solid rgba(184,78,71,.72);
+    border-radius: 999px;
+    animation: pulse 1.7s ease-out infinite;
+  }
+
+  @keyframes pulse {
+    0% { transform: scale(.78); opacity: .8; }
+    100% { transform: scale(1.42); opacity: 0; }
+  }
+
+  .qc,
+  .rtg {
+    --c: var(--blue);
+    position: absolute;
+    z-index: 6;
+    left: var(--x);
+    top: var(--y);
+    width: 58px;
+    height: 44px;
+    color: var(--c);
+    transform: translate(-50%, -50%) rotate(var(--r, 0deg));
+    transform-origin: 50% 50%;
+    transform-style: preserve-3d;
+    backface-visibility: visible;
+    transition: left .9s cubic-bezier(.18,.78,.18,1), top .9s cubic-bezier(.18,.78,.18,1), transform .9s cubic-bezier(.18,.78,.18,1), opacity .35s, color .35s;
+    filter: drop-shadow(0 6px 3px rgba(16,28,39,.28));
+  }
+
+  .qc.dim,
+  .rtg.dim {
+    opacity: .34;
+  }
+
+  .rtg.dim {
+    opacity: .62;
+  }
+
+  .pane .qc.dim,
+  .pane .rtg.dim {
+    --c: var(--accent);
+  }
+
+  .qc.called {
+    opacity: 1;
+    --c: var(--accent, var(--blue));
+  }
+
+  .rtg {
+    z-index: 2;
+    opacity: .42;
+    pointer-events: none;
+    filter: drop-shadow(0 4px 2px rgba(16,28,39,.08));
+  }
+
+  .rtg.called {
+    opacity: .56;
+    --c: var(--crane-c, #bdcbd2);
+  }
+
+  [data-phase="process-compare"] .rtg.yard-crane.called {
+    opacity: .86;
+    --c: #6f8996;
+    filter: drop-shadow(0 10px 6px rgba(28,44,58,.25));
+  }
+
+  .qc .base,
+  .rtg .base {
+    position: absolute;
+    left: 8px;
+    bottom: 7px;
+    width: 34px;
+    height: 12px;
+    border: 2px solid currentColor;
+    border-radius: 3px;
+    background: rgba(255,255,255,.88);
+  }
+
+  .qc .base::before {
+    content: "";
+    position: absolute;
+    left: -5px;
+    right: -5px;
+    bottom: -6px;
+    height: 3px;
+    border-radius: 999px;
+    background: rgba(37,52,66,.52);
+  }
+
+  .qc .cab {
+    position: absolute;
+    left: 36px;
+    bottom: 10px;
+    width: 15px;
+    height: 12px;
+    border-radius: 3px;
+    background: currentColor;
+  }
+
+  .qc .cab::after {
+    content: "";
+    position: absolute;
+    left: 3px;
+    top: 3px;
+    width: 6px;
+    height: 4px;
+    border-radius: 1px;
+    background: rgba(222,239,246,.92);
+  }
+
+  .qc .mast {
+    position: absolute;
+    left: 20px;
+    bottom: 18px;
+    width: 6px;
+    height: 22px;
+    border-radius: 3px;
+    background: currentColor;
+  }
+
+  .qc .mast::before {
+    content: "";
+    position: absolute;
+    left: -9px;
+    bottom: 3px;
+    width: 23px;
+    height: 3px;
+    border-radius: 999px;
+    background: currentColor;
+    transform: rotate(-55deg);
+    opacity: .72;
+  }
+
+  .qc .boom {
+    position: absolute;
+    left: 20px;
+    bottom: 36px;
+    width: 42px;
+    height: 5px;
+    border-radius: 999px;
+    background: currentColor;
+    transform: rotate(-12deg);
+    transform-origin: left center;
+  }
+
+  .qc .boom::after {
+    content: "";
+    position: absolute;
+    left: 6px;
+    top: 7px;
+    width: 29px;
+    height: 2px;
+    border-radius: 999px;
+    background: currentColor;
+    transform: rotate(21deg);
+    opacity: .62;
+  }
+
+  .qc .hook {
+    position: absolute;
+    left: 52px;
+    bottom: 19px;
+    width: 2px;
+    height: 18px;
+    background: currentColor;
+  }
+
+  .qc .hook::after {
+    content: "";
+    position: absolute;
+    left: -5px;
+    bottom: -6px;
+    width: 12px;
+    height: 6px;
+    border-radius: 2px;
+    background: currentColor;
+  }
+
+  .qc .hook::before {
+    content: "";
+    position: absolute;
+    left: -8px;
+    bottom: -20px;
+    width: 18px;
+    height: 10px;
+    border: 1px solid rgba(37,52,66,.32);
+    border-radius: 2px;
+    background:
+      repeating-linear-gradient(90deg, rgba(255,255,255,.22) 0 3px, rgba(255,255,255,0) 3px 6px),
+      rgba(63,111,157,.78);
+    box-shadow: inset 0 2px rgba(255,255,255,.18), 2px 2px 0 rgba(37,52,66,.16);
+  }
+
+  .pane.active .qc.called .hook {
+    animation: qcHookWork 1.9s cubic-bezier(.34,.02,.24,1) infinite;
+  }
+
+  .pane.active .qc.called .boom {
+    animation: qcBoomFlex 2.4s ease-in-out infinite;
+  }
+
+  @keyframes qcHookWork {
+    0%, 100% { transform: translateY(0); }
+    42%, 65% { transform: translateY(7px); }
+  }
+
+  @keyframes qcBoomFlex {
+    0%, 100% { transform: rotate(-12deg); }
+    50% { transform: rotate(-9deg); }
+  }
+
+  .qc .wheel {
+    position: absolute;
+    bottom: 2px;
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: #172332;
+  }
+
+  .qc .w1 { left: 13px; }
+  .qc .w2 { left: 38px; }
+
+  .qc {
+    --qc-blue: #2f6f9d;
+    --qc-box: #8fb8d7;
+    --qc-box-side: #668ca8;
+    width: 64px;
+    height: 31px;
+    color: var(--qc-blue);
+    filter: drop-shadow(0 5px 2px rgba(16,28,39,.22));
+  }
+
+  .qc.called,
+  .pane .qc.dim {
+    --c: var(--qc-blue);
+    color: var(--qc-blue);
+  }
+
+  .qc .mast,
+  .qc .boom,
+  .qc .hook {
+    display: none;
+  }
+
+  .qc .base {
+    left: 6px;
+    top: 11px;
+    bottom: auto;
+    width: 34px;
+    height: 11px;
+    border: 1.4px solid rgba(37,52,66,.52);
+    border-radius: 3px;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.24), rgba(0,0,0,.06)),
+      repeating-linear-gradient(90deg, rgba(255,255,255,.30) 0 3px, rgba(255,255,255,0) 3px 7px),
+      var(--qc-box);
+    box-shadow: inset 0 1px rgba(255,255,255,.22), inset 0 -1px rgba(0,0,0,.08);
+  }
+
+  .qc .base::before {
+    left: 4px;
+    right: auto;
+    top: -6px;
+    bottom: auto;
+    width: 34px;
+    height: 6px;
+    border: 1px solid rgba(37,52,66,.26);
+    border-bottom: 0;
+    border-radius: 3px 3px 0 0;
+    background:
+      repeating-linear-gradient(90deg, rgba(255,255,255,.24) 0 3px, rgba(255,255,255,0) 3px 7px),
+      #b6d0e4;
+    transform: skewX(-25deg);
+    transform-origin: left bottom;
+  }
+
+  .qc .base::after {
+    content: "";
+    position: absolute;
+    right: -7px;
+    top: -4px;
+    width: 7px;
+    height: 11px;
+    border-radius: 0 2px 2px 0;
+    background: var(--qc-box-side);
+    transform: skewY(-21deg);
+    transform-origin: left bottom;
+  }
+
+  .qc .cab {
+    left: 42px;
+    top: 8px;
+    bottom: auto;
+    width: 17px;
+    height: 15px;
+    border-radius: 4px 6px 4px 3px;
+    background: var(--qc-blue);
+  }
+
+  .qc .cab::before {
+    content: "";
+    position: absolute;
+    left: 3px;
+    top: -5px;
+    width: 14px;
+    height: 6px;
+    border-radius: 3px 5px 0 0;
+    background: #34485c;
+    transform: skewX(-24deg);
+    transform-origin: left bottom;
+  }
+
+  .qc .cab::after {
+    left: 8px;
+    top: 3px;
+    width: 6px;
+    height: 5px;
+    border-radius: 1px;
+    background: rgba(222,239,246,.95);
+  }
+
+  .qc::after {
+    content: "";
+    position: absolute;
+    right: 2px;
+    top: 15px;
+    width: 3px;
+    height: 4px;
+    border-radius: 1px;
+    background: rgba(255,226,137,.96);
+  }
+
+  .qc .wheel {
+    top: 22px;
+    bottom: auto;
+    width: 7px;
+    height: 7px;
+    border: 2px solid #172332;
+    border-radius: 999px;
+    background: #f8fbfd;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .qc .w1 { left: 12px; }
+  .qc .w2 { left: 47px; }
+
+  .pane.active .qc.called .wheel,
+  .free-qc .wheel {
+    animation: wheelTurn .62s linear infinite;
+  }
+
+  .rtg {
+    --trolley: 0px;
+    width: 78px;
+    height: 58px;
+  }
+
+  .rtg.quay-crane {
+    display: none;
+  }
+
+  .rtg.yard-crane {
+    width: 34%;
+    height: 52%;
+    min-width: 140px;
+    min-height: 116px;
+  }
+
+  .rtg::before {
+    content: "";
+    position: absolute;
+    left: 6px;
+    right: 6px;
+    bottom: 3px;
+    height: 5px;
+    border-radius: 999px;
+    background: rgba(37,52,66,.58);
+  }
+
+  .rtg .top {
+    position: absolute;
+    left: 3%;
+    top: 7%;
+    width: 94%;
+    height: 7px;
+    border-radius: 999px;
+    background: currentColor;
+  }
+
+  .rtg .top::after {
+    content: "";
+    position: absolute;
+    left: 45%;
+    top: -7px;
+    width: 15%;
+    min-width: 28px;
+    height: 12px;
+    border: 2px solid currentColor;
+    border-bottom: 0;
+    border-radius: 5px 5px 0 0;
+    background: rgba(255,255,255,.72);
+    transform: translateX(var(--trolley));
+    transition: transform .75s cubic-bezier(.18,.78,.18,1);
+  }
+
+  .rtg .leg {
+    position: absolute;
+    top: 9%;
+    width: 7px;
+    height: 78%;
+    border-radius: 999px;
+    background: currentColor;
+  }
+
+  .rtg .leg::after {
+    content: "";
+    position: absolute;
+    left: -6px;
+    bottom: -6px;
+    width: 19px;
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(37,52,66,.55);
+  }
+
+  .rtg .l1 { left: 4%; }
+  .rtg .l2 { right: 4%; }
+
+  .rtg .spreader {
+    position: absolute;
+    left: calc(50% - 18px);
+    top: 62%;
+    width: 36px;
+    height: 7px;
+    border-radius: 3px;
+    background: currentColor;
+    transform: translateX(var(--trolley));
+    transition: transform .75s cubic-bezier(.18,.78,.18,1);
+  }
+
+  .rtg .load {
+    position: absolute;
+    left: calc(50% - 16px);
+    top: 70%;
+    width: 32px;
+    height: 12px;
+    border: 1px solid rgba(37,52,66,.38);
+    border-radius: 2px;
+    background: currentColor;
+    opacity: .82;
+    transform: translateX(var(--trolley));
+    transition: transform .75s cubic-bezier(.18,.78,.18,1);
+  }
+
+  .truck {
+    --body: var(--blue);
+    --box-top: #9db3c5;
+    --box-side: #657d91;
+    position: absolute;
+    z-index: 5;
+    left: var(--x);
+    top: var(--y);
+    width: 66px;
+    height: 31px;
+    transform: translate(-50%, -50%) rotate(var(--r, 0deg));
+    transform-origin: 50% 50%;
+    transform-style: preserve-3d;
+    backface-visibility: visible;
+    transition: left .9s cubic-bezier(.18,.78,.18,1), top .9s cubic-bezier(.18,.78,.18,1), transform .9s cubic-bezier(.18,.78,.18,1), opacity .35s;
+    filter: drop-shadow(0 5px 2px rgba(16,28,39,.25));
+  }
+
+  .truck.manual-truck { --body: var(--red); --box-top: #d7837d; --box-side: #9f413b; }
+  .truck.model-truck { --body: var(--teal); --box-top: #55aaa5; --box-side: #0f625f; }
+  .truck.blue-truck { --body: var(--blue); --box-top: #95b9d5; --box-side: #3f6f9d; }
+  .truck.green-truck { --body: var(--green); --box-top: #78b98d; --box-side: #2f7448; }
+  .truck.dim { opacity: .32; }
+
+  .truck .trailer {
+    position: absolute;
+    left: 4px;
+    top: 9px;
+    width: 39px;
+    height: 14px;
+    border: 1.4px solid rgba(37,52,66,.78);
+    border-radius: 3px;
+    background: rgba(248,251,253,.96);
+  }
+
+  .truck .trailer::before {
+    content: "";
+    position: absolute;
+    left: 4px;
+    top: -6px;
+    width: 38px;
+    height: 7px;
+    border: 1px solid rgba(38,56,73,.34);
+    border-bottom: 0;
+    border-radius: 3px 3px 0 0;
+    background: rgba(255,255,255,.92);
+    transform: skewX(-28deg);
+    transform-origin: left bottom;
+  }
+
+  .truck .trailer::after {
+    content: "";
+    position: absolute;
+    right: -8px;
+    top: -4px;
+    width: 8px;
+    height: 18px;
+    border: 1px solid rgba(38,56,73,.30);
+    border-left: 0;
+    border-radius: 0 3px 3px 0;
+    background: #d7e0e8;
+    transform: skewY(-22deg);
+    transform-origin: left bottom;
+  }
+
+  .truck .container {
+    position: absolute;
+    left: 8px;
+    top: 11px;
+    width: 28px;
+    height: 10px;
+    border-radius: 2px;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.16), rgba(0,0,0,.06)),
+      repeating-linear-gradient(90deg, rgba(255,255,255,.22) 0 3px, rgba(255,255,255,0) 3px 6px),
+      var(--body);
+    box-shadow: inset 0 1px rgba(255,255,255,.18), inset 0 -1px rgba(0,0,0,.10);
+  }
+
+  .truck .container::before {
+    content: "";
+    position: absolute;
+    left: 4px;
+    top: -5px;
+    width: 28px;
+    height: 5px;
+    border-radius: 2px 2px 0 0;
+    background: var(--box-top);
+    transform: skewX(-28deg);
+    transform-origin: left bottom;
+  }
+
+  .truck .container::after {
+    content: "";
+    position: absolute;
+    right: -6px;
+    top: -3px;
+    width: 6px;
+    height: 10px;
+    border-radius: 0 2px 2px 0;
+    background: var(--box-side);
+    transform: skewY(-22deg);
+    transform-origin: left bottom;
+  }
+
+  .truck .cab {
+    position: absolute;
+    left: 42px;
+    top: 8px;
+    width: 18px;
+    height: 15px;
+    border-radius: 4px 6px 4px 3px;
+    background: var(--body);
+  }
+
+  .truck .cab::before {
+    content: "";
+    position: absolute;
+    left: 3px;
+    top: -5px;
+    width: 14px;
+    height: 6px;
+    border-radius: 3px 5px 0 0;
+    background: #374a5d;
+    transform: skewX(-24deg);
+    transform-origin: left bottom;
+  }
+
+  .truck .cab::after {
+    content: "";
+    position: absolute;
+    right: 3px;
+    top: 3px;
+    width: 6px;
+    height: 5px;
+    border-radius: 1px;
+    background: rgba(222,239,246,.95);
+  }
+
+  .truck .light {
+    position: absolute;
+    right: 2px;
+    top: 14px;
+    width: 3px;
+    height: 4px;
+    border-radius: 1px;
+    background: rgba(255,226,137,.96);
+  }
+
+  .truck .wheel {
+    position: absolute;
+    top: 22px;
+    width: 7px;
+    height: 7px;
+    border: 2px solid #172332;
+    border-radius: 999px;
+    background: #f8fbfd;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .truck .w1 { left: 10px; }
+  .truck .w2 { left: 36px; }
+  .truck .w3 { left: 50px; }
+
+  .truck.moving .wheel,
+  .pane.active .truck .wheel {
+    animation: wheelTurn .62s linear infinite;
+  }
+
+  .truck.moving {
+    animation: truckBodyMotion 2.2s ease-in-out infinite;
+  }
+
+  .truck.moving .container {
+    animation: containerSettle 2.2s ease-in-out infinite;
+  }
+
+  @keyframes wheelTurn {
+    to { transform: rotate(360deg); }
+  }
+
+  @keyframes truckBodyMotion {
+    0%, 100% { transform: translate(-50%, -50%) rotate(var(--r, 0deg)); }
+    50% { transform: translate(calc(-50% + 4px), calc(-50% - 1px)) rotate(var(--r, 0deg)); }
+  }
+
+  @keyframes containerSettle {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-1px); }
+  }
+
+  .rtg.called .spreader,
+  .rtg.called .load {
+    animation: hoist 2.1s cubic-bezier(.34,.02,.24,1) infinite;
+  }
+
+  [data-phase="process-compare"] .rtg.called .spreader {
+    animation: none;
+    opacity: .42;
+    transform: translateX(var(--trolley));
+  }
+
+  [data-phase="process-compare"] .rtg.called .load {
+    animation: none;
+    border-color: rgba(109,59,56,.42);
+    background:
+      repeating-linear-gradient(90deg, rgba(255,255,255,.24) 0 4px, rgba(255,255,255,0) 4px 8px),
+      #b95c55;
+    opacity: 0;
+  }
+
+  [data-phase="process-compare"] #htruck1 .container,
+  [data-phase="process-compare"] #mtruck0 .container {
+    animation: receiveCargo 2.9s ease-in-out infinite;
+  }
+
+  [data-phase="process-compare"] #htruck2 .container,
+  [data-phase="process-compare"] #mtruck1 .container {
+    animation: receiveCargoSecond 5.4s ease-in-out infinite;
+  }
+
+  @keyframes hoist {
+    0%, 100% { transform: translateX(var(--trolley)) translateY(0); }
+    40%, 66% { transform: translateX(var(--trolley)) translateY(9px); }
+  }
+
+  @keyframes receiveCargo {
+    0%, 58% { transform: translateY(0); filter: brightness(.86) saturate(.9); }
+    68% { transform: translateY(0); filter: brightness(1.18) saturate(1.16); }
+    80%, 100% { transform: translateY(0); filter: brightness(1.08) saturate(1.08); }
+  }
+
+  @keyframes receiveCargoSecond {
+    0%, 56% { transform: translateY(0); filter: brightness(.88) saturate(.92); }
+    68% { transform: translateY(0); filter: brightness(1.18) saturate(1.16); }
+    80%, 100% { transform: translateY(0); filter: brightness(1.08) saturate(1.08); }
+  }
+
+  .cargo-transfer {
+    position: absolute;
+    z-index: 8;
+    top: 0;
+    left: var(--cargo-pick-x);
+    width: 46px;
+    height: 100%;
+    opacity: 0;
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+
+  .cargo-transfer::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: calc(var(--crane-rail-y) + 4px);
+    width: 2px;
+    height: calc(var(--cargo-pick-y) - var(--crane-rail-y) - 14px);
+    border-radius: 999px;
+    background: rgba(66,82,94,.62);
+    transform: translateX(-50%);
+  }
+
+  .cargo-transfer::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: var(--crane-rail-y);
+    width: 20px;
+    height: 10px;
+    border: 2px solid #6f8996;
+    border-top: 0;
+    border-radius: 0 0 5px 5px;
+    background: rgba(255,255,255,.80);
+    transform: translateX(-50%);
+    box-shadow: 0 2px 0 rgba(66,82,94,.18);
+  }
+
+  .cargo-transfer .claw {
+    position: absolute;
+    left: 50%;
+    top: calc(var(--cargo-pick-y) - 11px);
+    width: 44px;
+    height: 6px;
+    border-radius: 4px;
+    background: #6f8996;
+    box-shadow: 0 2px 0 rgba(66,82,94,.22);
+    transform: translate(-50%, -50%);
+  }
+
+  .cargo-transfer .claw::before,
+  .cargo-transfer .claw::after {
+    content: "";
+    position: absolute;
+    top: 5px;
+    width: 6px;
+    height: 10px;
+    border: 2px solid #6f8996;
+    border-top: 0;
+    background: rgba(255,255,255,.70);
+  }
+
+  .cargo-transfer .claw::before {
+    left: 6px;
+    border-radius: 0 0 4px 8px;
+    transform: rotate(8deg);
+  }
+
+  .cargo-transfer .claw::after {
+    right: 6px;
+    border-radius: 0 0 8px 4px;
+    transform: rotate(-8deg);
+  }
+
+  .cargo-transfer .cargo-box {
+    position: absolute;
+    left: 50%;
+    top: var(--cargo-pick-y);
+    width: 31px;
+    height: 13px;
+    border: 1px solid rgba(84,45,42,.55);
+    border-radius: 2px;
+    background:
+      repeating-linear-gradient(90deg, rgba(255,255,255,.28) 0 4px, rgba(255,255,255,0) 4px 8px),
+      linear-gradient(180deg, #d7897f, #b95c55);
+    box-shadow: 0 7px 7px rgba(43,26,25,.20);
+    transform: translate(-50%, -50%);
+  }
+
+  [data-phase="process-compare"] .pane.active .cargo-transfer {
+    animation: cargoTrolleyMoveDual 5.4s cubic-bezier(.28,.72,.22,1) infinite;
+  }
+
+  [data-phase="process-compare"] .pane.active .cargo-transfer::before {
+    animation: cargoCableMoveDual 5.4s cubic-bezier(.28,.72,.22,1) infinite;
+  }
+
+  [data-phase="process-compare"] .pane.active .cargo-transfer .claw {
+    animation: cargoClawMoveDual 5.4s cubic-bezier(.28,.72,.22,1) infinite;
+  }
+
+  [data-phase="process-compare"] .pane.active .cargo-transfer .cargo-box {
+    animation: cargoBoxMoveDual 5.4s cubic-bezier(.28,.72,.22,1) infinite;
+  }
+
+  [data-phase="process-compare"] .pane.model.active .cargo-transfer {
+    animation: cargoTrolleyMoveDual 5.4s cubic-bezier(.28,.72,.22,1) infinite;
+  }
+
+  [data-phase="process-compare"] .pane.model.active .cargo-transfer::before {
+    animation: cargoCableMoveDual 5.4s cubic-bezier(.28,.72,.22,1) infinite;
+  }
+
+  [data-phase="process-compare"] .pane.model.active .cargo-transfer .claw {
+    animation: cargoClawMoveDual 5.4s cubic-bezier(.28,.72,.22,1) infinite;
+  }
+
+  [data-phase="process-compare"] .pane.model.active .cargo-transfer .cargo-box {
+    animation: cargoBoxMoveDual 5.4s cubic-bezier(.28,.72,.22,1) infinite;
+  }
+
+  @keyframes cargoTrolleyMove {
+    0%, 10% {
+      left: var(--cargo-pick-x);
+      opacity: 0;
+      transform: translateX(-50%);
+    }
+    18% {
+      left: var(--cargo-pick-x);
+      opacity: 1;
+      transform: translateX(-50%);
+    }
+    50%, 74% {
+      left: var(--cargo-drop-x);
+      opacity: 1;
+      transform: translateX(-50%);
+    }
+    82%, 100% {
+      left: var(--cargo-drop-x);
+      opacity: 0;
+      transform: translateX(-50%);
+    }
+  }
+
+  @keyframes cargoCableMove {
+    0%, 10% {
+      height: calc(var(--cargo-pick-y) - var(--crane-rail-y) - 14px);
+      opacity: 0;
+    }
+    18% {
+      height: calc(var(--cargo-pick-y) - var(--crane-rail-y) - 14px);
+      opacity: 1;
+    }
+    32%, 52% {
+      height: calc(var(--cargo-lift-y) - var(--crane-rail-y) - 14px);
+      opacity: 1;
+    }
+    66%, 74% {
+      height: calc(var(--cargo-drop-y) - var(--crane-rail-y) - 14px);
+      opacity: 1;
+    }
+    82%, 100% {
+      height: calc(var(--cargo-drop-y) - var(--crane-rail-y) - 14px);
+      opacity: 0;
+    }
+  }
+
+  @keyframes cargoClawMove {
+    0%, 10% {
+      top: calc(var(--cargo-pick-y) - 11px);
+      opacity: 0;
+    }
+    18% {
+      top: calc(var(--cargo-pick-y) - 11px);
+      opacity: 1;
+    }
+    32%, 52% {
+      top: calc(var(--cargo-lift-y) - 11px);
+      opacity: 1;
+    }
+    66%, 74% {
+      top: calc(var(--cargo-drop-y) - 11px);
+      opacity: 1;
+    }
+    82%, 100% {
+      top: calc(var(--cargo-drop-y) - 11px);
+      opacity: 0;
+    }
+  }
+
+  @keyframes cargoBoxMove {
+    0%, 10% {
+      top: var(--cargo-pick-y);
+      opacity: 0;
+    }
+    18% {
+      top: var(--cargo-pick-y);
+      opacity: 1;
+    }
+    32%, 52% {
+      top: var(--cargo-lift-y);
+      opacity: 1;
+    }
+    66%, 74% {
+      top: var(--cargo-drop-y);
+      opacity: 1;
+    }
+    82%, 100% {
+      top: var(--cargo-drop-y);
+      opacity: 0;
+    }
+  }
+
+  @keyframes cargoTrolleyMoveDual {
+    0%, 7% { left: var(--cargo-pick-x); opacity: 0; transform: translateX(-50%); }
+    12% { left: var(--cargo-pick-x); opacity: 1; transform: translateX(-50%); }
+    24%, 34% { left: var(--cargo-drop-x); opacity: 1; transform: translateX(-50%); }
+    40%, 45% { left: var(--cargo-drop-x); opacity: 0; transform: translateX(-50%); }
+    46%, 51% { left: var(--cargo-pick-x); opacity: 0; transform: translateX(-50%); }
+    56% { left: var(--cargo-pick-x); opacity: 1; transform: translateX(-50%); }
+    68%, 80% { left: var(--cargo-drop2-x); opacity: 1; transform: translateX(-50%); }
+    88%, 100% { left: var(--cargo-drop2-x); opacity: 0; transform: translateX(-50%); }
+  }
+
+  @keyframes cargoCableMoveDual {
+    0%, 7% { height: calc(var(--cargo-pick-y) - var(--crane-rail-y) - 14px); opacity: 0; }
+    12% { height: calc(var(--cargo-pick-y) - var(--crane-rail-y) - 14px); opacity: 1; }
+    20%, 26% { height: calc(var(--cargo-lift-y) - var(--crane-rail-y) - 14px); opacity: 1; }
+    32%, 38% { height: calc(var(--cargo-drop-y) - var(--crane-rail-y) - 14px); opacity: 1; }
+    42%, 51% { height: calc(var(--cargo-pick-y) - var(--crane-rail-y) - 14px); opacity: 0; }
+    56% { height: calc(var(--cargo-pick-y) - var(--crane-rail-y) - 14px); opacity: 1; }
+    64%, 70% { height: calc(var(--cargo-lift-y) - var(--crane-rail-y) - 14px); opacity: 1; }
+    76%, 84% { height: calc(var(--cargo-drop2-y) - var(--crane-rail-y) - 14px); opacity: 1; }
+    88%, 100% { height: calc(var(--cargo-drop2-y) - var(--crane-rail-y) - 14px); opacity: 0; }
+  }
+
+  @keyframes cargoClawMoveDual {
+    0%, 7% { top: calc(var(--cargo-pick-y) - 11px); opacity: 0; }
+    12% { top: calc(var(--cargo-pick-y) - 11px); opacity: 1; }
+    20%, 26% { top: calc(var(--cargo-lift-y) - 11px); opacity: 1; }
+    32%, 38% { top: calc(var(--cargo-drop-y) - 11px); opacity: 1; }
+    42%, 51% { top: calc(var(--cargo-pick-y) - 11px); opacity: 0; }
+    56% { top: calc(var(--cargo-pick-y) - 11px); opacity: 1; }
+    64%, 70% { top: calc(var(--cargo-lift-y) - 11px); opacity: 1; }
+    76%, 84% { top: calc(var(--cargo-drop2-y) - 11px); opacity: 1; }
+    88%, 100% { top: calc(var(--cargo-drop2-y) - 11px); opacity: 0; }
+  }
+
+  @keyframes cargoBoxMoveDual {
+    0%, 7% { top: var(--cargo-pick-y); opacity: 0; }
+    12% { top: var(--cargo-pick-y); opacity: 1; }
+    20%, 26% { top: var(--cargo-lift-y); opacity: 1; }
+    32%, 38% { top: var(--cargo-drop-y); opacity: 1; }
+    42%, 51% { top: var(--cargo-pick-y); opacity: 0; }
+    56% { top: var(--cargo-pick-y); opacity: 1; }
+    64%, 70% { top: var(--cargo-lift-y); opacity: 1; }
+    76%, 84% { top: var(--cargo-drop2-y); opacity: 1; }
+    88%, 100% { top: var(--cargo-drop2-y); opacity: 0; }
+  }
+
+  .route-line,
+  .return-line {
+    position: absolute;
+    z-index: 2;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .4s ease;
+  }
+
+  .pane.show-routes .route-line,
+  .pane.show-return .return-line {
+    opacity: .16;
+  }
+
+  .route-line path,
+  .return-line path {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: .75;
+    stroke-linecap: round;
+    stroke-dasharray: 1.5 11;
+    animation: routeFlow 1.05s linear infinite;
+  }
+
+  .return-line path {
+    stroke: var(--green);
+    stroke-width: .7;
+    stroke-dasharray: 1.5 10;
+  }
+
+  @keyframes routeFlow {
+    to { stroke-dashoffset: -28; }
+  }
+
+  .turn-marker {
+    position: absolute;
+    z-index: 5;
+    width: 34px;
+    height: 34px;
+    border: 2px solid var(--red);
+    border-left-color: transparent;
+    border-radius: 999px;
+    opacity: 0;
+    transform: rotate(35deg);
+  }
+
+  .turn-marker::after {
+    content: "";
+    position: absolute;
+    right: -3px;
+    top: 4px;
+    width: 0;
+    height: 0;
+    border-left: 7px solid var(--red);
+    border-top: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+  }
+
+  .pane.show-turns .turn-marker {
+    opacity: .95;
+    animation: turnBlink 1.15s ease-in-out infinite;
+  }
+
+  @keyframes turnBlink {
+    50% { transform: rotate(35deg) scale(1.08); }
+  }
+
+  .t1 { left: 56%; top: 52%; }
+  .t2 { left: 76%; top: 73%; }
+
+  .status-note {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    z-index: 5;
+    padding: 9px 10px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    border: 1px solid rgba(211,221,230,.88);
+    border-radius: 8px;
+    background: rgba(255,255,255,.92);
+    backdrop-filter: blur(8px);
+  }
+
+  .status-note div {
+    min-height: 44px;
+    padding: 7px 8px;
+    border-radius: 7px;
+    background: var(--soft);
+  }
+
+  .status-note span {
+    display: block;
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 850;
+    text-transform: uppercase;
+  }
+
+  .status-note strong {
+    display: block;
+    margin-top: 2px;
+    color: var(--dark);
+    font-size: 13px;
+  }
+
+  .single-title {
+    position: absolute;
+    left: 16px;
+    top: 16px;
+    z-index: 5;
+    width: min(430px, calc(100% - 32px));
+    padding: 12px 14px;
+    border: 1px solid rgba(211,221,230,.88);
+    border-radius: 8px;
+    background: rgba(255,255,255,.92);
+    backdrop-filter: blur(8px);
+  }
+
+  .single-title span {
+    display: block;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 850;
+    text-transform: uppercase;
+  }
+
+  .single-title strong {
+    display: block;
+    margin-top: 3px;
+    font-size: 20px;
+  }
+
+  .single-title p {
+    margin-top: 5px;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .free-qc {
+    --run: 30px;
+    --drive-time: 6.8s;
+    animation: laneFlow var(--drive-time) linear infinite;
+    animation-delay: var(--delay, 0s);
+  }
+
+  .single-stage .truck.moving {
+    --run: 26px;
+    --drive-time: 7.4s;
+    animation: laneFlow var(--drive-time) linear infinite;
+    animation-delay: var(--delay, 0s);
+  }
+
+  .single-stage .truck.moving .container {
+    animation: none;
+  }
+
+  @keyframes laneFlow {
+    0% {
+      opacity: 0;
+      transform: translate(calc(-50% - var(--run)), -50%) rotate(var(--r));
+    }
+    8%, 82% {
+      opacity: 1;
+    }
+    88% {
+      opacity: 1;
+      transform: translate(calc(-50% + var(--run)), -50%) rotate(var(--r));
+    }
+    89%, 100% {
+      opacity: 0;
+      transform: translate(calc(-50% + var(--run)), -50%) rotate(var(--r));
+    }
+  }
+
+  [data-phase="observe-compare"] #htruck0 {
+    animation: truckUTurnTop 4s cubic-bezier(.24,.72,.2,1) infinite;
+  }
+
+  [data-phase="observe-compare"] #htruck1 {
+    animation: truckUTurnBottom 4s cubic-bezier(.24,.72,.2,1) infinite;
+  }
+
+  [data-phase="observe-compare"] #hqc0,
+  [data-phase="observe-compare"] #hqc1,
+  [data-phase="observe-compare"] #hqc2,
+  [data-phase="observe-compare"] #hqc3,
+  [data-phase="observe-compare"] #hqc4,
+  [data-phase="observe-compare"] #mqc0,
+  [data-phase="observe-compare"] #mqc1 {
+    --run: 170px;
+    --drive-time: 7.4s;
+    animation: laneFlow var(--drive-time) linear infinite;
+    animation-delay: var(--delay, 0s);
+  }
+
+  [data-phase="observe-compare"] #hqc0 { --delay: -.4s; }
+  [data-phase="observe-compare"] #hqc1 { --delay: -1.8s; }
+  [data-phase="observe-compare"] #hqc2 { --delay: -3.1s; }
+  [data-phase="observe-compare"] #hqc3 { --delay: -1.1s; }
+  [data-phase="observe-compare"] #hqc4 { --delay: -4.2s; }
+  [data-phase="observe-compare"] #mqc0 { --delay: -.9s; }
+  [data-phase="observe-compare"] #mqc1 { --delay: -2.7s; }
+
+  [data-phase="observe-compare"] #mqc2 {
+    animation: none;
+    opacity: .18;
+  }
+
+  [data-phase="observe-compare"] #mtruck2 {
+    animation: none;
+    opacity: 0;
+  }
+
+  [data-phase="observe-compare"] #htruck2,
+  [data-phase="observe-compare"] #mtruck0,
+  [data-phase="observe-compare"] #mtruck1 {
+    --run: 170px;
+    --drive-time: 7.4s;
+    animation: laneFlow var(--drive-time) linear infinite;
+    animation-delay: var(--delay, 0s);
+  }
+
+  [data-phase="observe-compare"] #htruck2 {
+    --delay: -.8s;
+  }
+
+  [data-phase="observe-compare"] #mtruck0 {
+    --delay: -1.1s;
+  }
+
+  [data-phase="observe-compare"] #mtruck1 {
+    --delay: -2.4s;
+  }
+
+  [data-phase="observe-compare"] #htruck2 .container,
+  [data-phase="observe-compare"] #mtruck0 .container,
+  [data-phase="observe-compare"] #mtruck1 .container {
+    animation: none;
+  }
+
+  [data-phase="process-compare"] #hqc0,
+  [data-phase="process-compare"] #hqc1,
+  [data-phase="process-compare"] #hqc2 {
+    animation: none;
+  }
+
+  [data-phase="process-compare"] #htruck0,
+  [data-phase="process-compare"] #htruck1 {
+    animation: none;
+  }
+
+  [data-phase="process-compare"] #mqc0,
+  [data-phase="process-compare"] #mqc1 {
+    animation: none;
+  }
+
+  [data-phase="process-compare"] #mtruck0 {
+    animation: none;
+  }
+
+  [data-phase="process-compare"] #htruck0 .wheel,
+  [data-phase="process-compare"] #htruck1 .wheel,
+  [data-phase="process-compare"] #mtruck0 .wheel,
+  [data-phase="process-compare"] #htruck2 .wheel,
+  [data-phase="process-compare"] #mtruck1 .wheel,
+  [data-phase="process-compare"] #mtruck2 .wheel,
+  [data-phase="process-compare"] #hqc0 .wheel,
+  [data-phase="process-compare"] #hqc1 .wheel,
+  [data-phase="process-compare"] #hqc2 .wheel,
+  [data-phase="process-compare"] #hqc3 .wheel,
+  [data-phase="process-compare"] #hqc4 .wheel,
+  [data-phase="process-compare"] #mqc0 .wheel,
+  [data-phase="process-compare"] #mqc1 .wheel,
+  [data-phase="process-compare"] #mqc2 .wheel,
+  [data-phase="process-compare"] #hqc0 .hook,
+  [data-phase="process-compare"] #hqc1 .hook,
+  [data-phase="process-compare"] #hqc2 .hook,
+  [data-phase="process-compare"] #hqc3 .hook,
+  [data-phase="process-compare"] #hqc4 .hook,
+  [data-phase="process-compare"] #mqc0 .hook,
+  [data-phase="process-compare"] #mqc1 .hook,
+  [data-phase="process-compare"] #mqc2 .hook,
+  [data-phase="process-compare"] #hqc0 .boom,
+  [data-phase="process-compare"] #hqc1 .boom,
+  [data-phase="process-compare"] #hqc2 .boom,
+  [data-phase="process-compare"] #hqc3 .boom,
+  [data-phase="process-compare"] #hqc4 .boom,
+  [data-phase="process-compare"] #mqc0 .boom,
+  [data-phase="process-compare"] #mqc1 .boom,
+  [data-phase="process-compare"] #mqc2 .boom {
+    animation: none;
+  }
+
+  [data-phase="back-compare"] #htruck0 {
+    animation: truckReturnTop 4.6s ease-in-out infinite;
+  }
+
+  [data-phase="back-compare"] #htruck1 {
+    animation: truckReturnBottom 4.8s ease-in-out infinite;
+  }
+
+  [data-phase="back-compare"] #hqc0,
+  [data-phase="back-compare"] #hqc1,
+  [data-phase="back-compare"] #hqc2,
+  [data-phase="back-compare"] #hqc3,
+  [data-phase="back-compare"] #hqc4,
+  [data-phase="back-compare"] #mqc0,
+  [data-phase="back-compare"] #mqc1,
+  [data-phase="back-compare"] #htruck2,
+  [data-phase="back-compare"] #mtruck0,
+  [data-phase="back-compare"] #mtruck1 {
+    animation: truckExitRightSmooth 7.4s linear both;
+  }
+
+  [data-phase="back-compare"] #mqc2 {
+    animation: none;
+    opacity: 0;
+  }
+
+  [data-phase="back-compare"] #mtruck2 {
+    animation: none;
+    opacity: 0;
+  }
+
+  [data-phase="observe-compare"] #htruck0 .cab,
+  [data-phase="observe-compare"] #htruck1 .cab {
+    animation: truckCabLeftToRight 4s cubic-bezier(.24,.72,.2,1) infinite;
+  }
+
+  [data-phase="observe-compare"] #htruck0 .trailer,
+  [data-phase="observe-compare"] #htruck1 .trailer {
+    animation: truckTrailerLeftToRight 4s cubic-bezier(.24,.72,.2,1) infinite;
+  }
+
+  [data-phase="observe-compare"] #htruck0 .container,
+  [data-phase="observe-compare"] #htruck1 .container {
+    animation: truckContainerLeftToRight 4s cubic-bezier(.24,.72,.2,1) infinite;
+  }
+
+  [data-phase="observe-compare"] #htruck0 .light,
+  [data-phase="observe-compare"] #htruck1 .light {
+    animation: truckLightLeftToRight 4s cubic-bezier(.24,.72,.2,1) infinite;
+  }
+
+  [data-phase="observe-compare"] #htruck0 .wheel,
+  [data-phase="observe-compare"] #htruck1 .wheel {
+    animation: wheelTurn .62s linear infinite, wheelHideDuringTurn 4s cubic-bezier(.24,.72,.2,1) infinite;
+  }
+
+  [data-phase="back-compare"] #htruck0 .wheel {
+    animation: wheelTurn .62s linear infinite, wheelHideDuringTurn 4.6s ease-in-out infinite;
+  }
+
+  [data-phase="back-compare"] #htruck1 .wheel {
+    animation: wheelTurn .62s linear infinite, wheelHideDuringTurn 4.8s ease-in-out infinite;
+  }
+
+  [data-phase="back-compare"] #htruck2 .wheel,
+  [data-phase="back-compare"] #mtruck0 .wheel,
+  [data-phase="back-compare"] #mtruck1 .wheel {
+    animation: wheelTurn .62s linear infinite;
+  }
+
+  [data-phase="back-compare"] #htruck0 .cab { animation: truckCabRightToLeft 4.6s ease-in-out infinite; }
+  [data-phase="back-compare"] #htruck1 .cab { animation: truckCabRightToLeft 4.8s ease-in-out infinite; }
+  [data-phase="back-compare"] #htruck0 .trailer { animation: truckTrailerRightToLeft 4.6s ease-in-out infinite; }
+  [data-phase="back-compare"] #htruck1 .trailer { animation: truckTrailerRightToLeft 4.8s ease-in-out infinite; }
+  [data-phase="back-compare"] #htruck0 .container { animation: truckContainerRightToLeft 4.6s ease-in-out infinite; }
+  [data-phase="back-compare"] #htruck1 .container { animation: truckContainerRightToLeft 4.8s ease-in-out infinite; }
+  [data-phase="back-compare"] #htruck0 .light { animation: truckLightRightToLeft 4.6s ease-in-out infinite; }
+  [data-phase="back-compare"] #htruck1 .light { animation: truckLightRightToLeft 4.8s ease-in-out infinite; }
+
+  [data-phase="observe-compare"] #htruck0 .trailer::before,
+  [data-phase="observe-compare"] #htruck0 .trailer::after,
+  [data-phase="observe-compare"] #htruck0 .container::before,
+  [data-phase="observe-compare"] #htruck0 .container::after,
+  [data-phase="observe-compare"] #htruck0 .cab::before,
+  [data-phase="observe-compare"] #htruck1 .trailer::before,
+  [data-phase="observe-compare"] #htruck1 .trailer::after,
+  [data-phase="observe-compare"] #htruck1 .container::before,
+  [data-phase="observe-compare"] #htruck1 .container::after,
+  [data-phase="observe-compare"] #htruck1 .cab::before {
+    animation: truckPerspectiveDuringTurn 4s cubic-bezier(.24,.72,.2,1) infinite;
+  }
+
+  [data-phase="back-compare"] #htruck0 .trailer::before,
+  [data-phase="back-compare"] #htruck0 .trailer::after,
+  [data-phase="back-compare"] #htruck0 .container::before,
+  [data-phase="back-compare"] #htruck0 .container::after,
+  [data-phase="back-compare"] #htruck0 .cab::before {
+    animation: truckPerspectiveDuringTurn 4.6s ease-in-out infinite;
+  }
+
+  [data-phase="back-compare"] #htruck1 .trailer::before,
+  [data-phase="back-compare"] #htruck1 .trailer::after,
+  [data-phase="back-compare"] #htruck1 .container::before,
+  [data-phase="back-compare"] #htruck1 .container::after,
+  [data-phase="back-compare"] #htruck1 .cab::before {
+    animation: truckPerspectiveDuringTurn 4.8s ease-in-out infinite;
+  }
+
+  [data-phase="back-compare"] #htruck2 .cab,
+  [data-phase="back-compare"] #htruck2 .trailer,
+  [data-phase="back-compare"] #htruck2 .container,
+  [data-phase="back-compare"] #htruck2 .light,
+  [data-phase="back-compare"] #htruck2 .trailer::before,
+  [data-phase="back-compare"] #htruck2 .trailer::after,
+  [data-phase="back-compare"] #htruck2 .container::before,
+  [data-phase="back-compare"] #htruck2 .container::after,
+  [data-phase="back-compare"] #htruck2 .cab::before,
+  [data-phase="back-compare"] #mtruck0 .cab,
+  [data-phase="back-compare"] #mtruck0 .trailer,
+  [data-phase="back-compare"] #mtruck0 .container,
+  [data-phase="back-compare"] #mtruck0 .light,
+  [data-phase="back-compare"] #mtruck0 .trailer::before,
+  [data-phase="back-compare"] #mtruck0 .trailer::after,
+  [data-phase="back-compare"] #mtruck0 .container::before,
+  [data-phase="back-compare"] #mtruck0 .container::after,
+  [data-phase="back-compare"] #mtruck0 .cab::before,
+  [data-phase="back-compare"] #mtruck1 .cab,
+  [data-phase="back-compare"] #mtruck1 .trailer,
+  [data-phase="back-compare"] #mtruck1 .container,
+  [data-phase="back-compare"] #mtruck1 .light,
+  [data-phase="back-compare"] #mtruck1 .trailer::before,
+  [data-phase="back-compare"] #mtruck1 .trailer::after,
+  [data-phase="back-compare"] #mtruck1 .container::before,
+  [data-phase="back-compare"] #mtruck1 .container::after,
+  [data-phase="back-compare"] #mtruck1 .cab::before {
+    animation: none;
+  }
+
+  @keyframes forcedTurnTop {
+    0% { opacity: .62; transform: translate(calc(-50% - 34px), -50%) rotate(var(--r)); }
+    28% { opacity: 1; transform: translate(calc(-50% - 16px), -50%) rotate(var(--r)); }
+    44% { transform: translate(calc(-50% - 10px), calc(-50% + 12px)) rotate(calc(var(--r) + 8deg)); }
+    62% { transform: translate(calc(-50% - 4px), calc(-50% + 16px)) rotate(calc(var(--r) - 7deg)); }
+    78% { transform: translate(calc(-50% - 2px), calc(-50% + 5px)) rotate(var(--r)); }
+    100% { opacity: 1; transform: translate(-50%, -50%) rotate(var(--r)); }
+  }
+
+  @keyframes forcedTurnBottom {
+    0% { opacity: .62; transform: translate(calc(-50% - 30px), -50%) rotate(var(--r)); }
+    30% { opacity: 1; transform: translate(calc(-50% - 14px), -50%) rotate(var(--r)); }
+    46% { transform: translate(calc(-50% - 9px), calc(-50% - 12px)) rotate(calc(var(--r) - 8deg)); }
+    64% { transform: translate(calc(-50% - 4px), calc(-50% - 16px)) rotate(calc(var(--r) + 7deg)); }
+    80% { transform: translate(calc(-50% - 2px), calc(-50% - 5px)) rotate(var(--r)); }
+    100% { opacity: 1; transform: translate(-50%, -50%) rotate(var(--r)); }
+  }
+
+  @keyframes truckUTurnTop {
+    0% { opacity: .72; transform: translate(calc(-50% + 42px), -50%) rotate(var(--r)); }
+    24% { opacity: 1; transform: translate(calc(-50% + 14px), -50%) rotate(var(--r)); }
+    40% { transform: translate(calc(-50% + 4px), calc(-50% + 9px)) rotate(calc(var(--r) + 5deg)); }
+    54% { transform: translate(calc(-50% - 7px), calc(-50% + 18px)) rotate(calc(var(--r) + 1deg)); }
+    70% { transform: translate(calc(-50% - 2px), calc(-50% + 11px)) rotate(calc(var(--r) - 5deg)); }
+    86% { transform: translate(calc(-50% + 9px), calc(-50% + 3px)) rotate(var(--r)); }
+    100% { opacity: 1; transform: translate(-50%, -50%) rotate(var(--r)); }
+  }
+
+  @keyframes truckUTurnBottom {
+    0% { opacity: .72; transform: translate(calc(-50% + 40px), -50%) rotate(var(--r)); }
+    24% { opacity: 1; transform: translate(calc(-50% + 13px), -50%) rotate(var(--r)); }
+    40% { transform: translate(calc(-50% + 4px), calc(-50% - 9px)) rotate(calc(var(--r) - 5deg)); }
+    54% { transform: translate(calc(-50% - 7px), calc(-50% - 18px)) rotate(calc(var(--r) - 1deg)); }
+    70% { transform: translate(calc(-50% - 2px), calc(-50% - 11px)) rotate(calc(var(--r) + 5deg)); }
+    86% { transform: translate(calc(-50% + 9px), calc(-50% - 3px)) rotate(var(--r)); }
+    100% { opacity: 1; transform: translate(-50%, -50%) rotate(var(--r)); }
+  }
+
+  @keyframes truckReturnTop {
+    0% { opacity: .96; transform: translate(-50%, -50%) rotate(var(--r)); }
+    22% { transform: translate(calc(-50% - 5px), calc(-50% + 8px)) rotate(calc(var(--r) + 4deg)); }
+    42% { transform: translate(calc(-50% - 20px), calc(-50% + 18px)) rotate(calc(var(--r) + 1deg)); }
+    62% { transform: translate(calc(-50% - 35px), calc(-50% + 9px)) rotate(calc(var(--r) - 4deg)); }
+    82% { opacity: 1; transform: translate(calc(-50% - 45px), -50%) rotate(var(--r)); }
+    100% { opacity: 0; transform: translate(calc(-50% - 54px), -50%) rotate(var(--r)); }
+  }
+
+  @keyframes truckReturnBottom {
+    0% { opacity: .96; transform: translate(-50%, -50%) rotate(var(--r)); }
+    22% { transform: translate(calc(-50% - 5px), calc(-50% - 8px)) rotate(calc(var(--r) - 4deg)); }
+    42% { transform: translate(calc(-50% - 20px), calc(-50% - 18px)) rotate(calc(var(--r) - 1deg)); }
+    62% { transform: translate(calc(-50% - 35px), calc(-50% - 9px)) rotate(calc(var(--r) + 4deg)); }
+    82% { opacity: 1; transform: translate(calc(-50% - 45px), -50%) rotate(var(--r)); }
+    100% { opacity: 0; transform: translate(calc(-50% - 54px), -50%) rotate(var(--r)); }
+  }
+
+  @keyframes truckQuickReturn {
+    0% { opacity: .98; transform: translate(-50%, -50%) rotate(var(--r)); }
+    18% { transform: translate(calc(-50% - 5px), calc(-50% + 7px)) rotate(calc(var(--r) + 4deg)); }
+    36% { transform: translate(calc(-50% - 18px), calc(-50% + 13px)) rotate(calc(var(--r) + 1deg)); }
+    52% { transform: translate(calc(-50% - 30px), calc(-50% + 7px)) rotate(calc(var(--r) - 4deg)); }
+    72% { opacity: 1; transform: translate(calc(-50% - 40px), -50%) rotate(var(--r)); }
+    100% { opacity: 0; transform: translate(calc(-50% - 48px), -50%) rotate(var(--r)); }
+  }
+
+  @keyframes truckBlueBackTurn {
+    0% { opacity: .98; transform: translate(-50%, -50%) rotate(var(--r)); }
+    16% { opacity: 1; transform: translate(calc(-50% + 5px), -50%) rotate(var(--r)); }
+    32% { transform: translate(calc(-50% + 2px), calc(-50% + 10px)) rotate(calc(var(--r) + 4deg)); }
+    48% { transform: translate(calc(-50% - 10px), calc(-50% + 16px)) rotate(calc(var(--r) + 1deg)); }
+    64% { transform: translate(calc(-50% - 25px), calc(-50% + 8px)) rotate(calc(var(--r) - 4deg)); }
+    82% { opacity: 1; transform: translate(calc(-50% - 38px), -50%) rotate(var(--r)); }
+    100% { opacity: 0; transform: translate(calc(-50% - 48px), -50%) rotate(var(--r)); }
+  }
+
+  @keyframes truckBlueExitRight {
+    0% { opacity: .96; transform: translate(-50%, -50%) rotate(var(--r)); }
+    18% { opacity: 1; transform: translate(calc(-50% + 12px), -50%) rotate(var(--r)); }
+    72% { opacity: 1; transform: translate(calc(-50% + 54px), -50%) rotate(var(--r)); }
+    100% { opacity: 0; transform: translate(calc(-50% + 78px), -50%) rotate(var(--r)); }
+  }
+
+  @keyframes truckStraightDispatch {
+    0% { opacity: .64; transform: translate(calc(-50% - 54px), -50%) rotate(0deg); }
+    100% { opacity: 1; transform: translate(-50%, -50%) rotate(0deg); }
+  }
+
+  @keyframes truckStraightFlow {
+    0% { opacity: 0; transform: translate(calc(-50% - 72px), -50%) rotate(0deg); }
+    8% { opacity: 1; transform: translate(calc(-50% - 58px), -50%) rotate(0deg); }
+    86% { opacity: 1; transform: translate(calc(-50% + 74px), -50%) rotate(0deg); }
+    100% { opacity: 0; transform: translate(calc(-50% + 96px), -50%) rotate(0deg); }
+  }
+
+  @keyframes truckExitRightSmooth {
+    0% { opacity: 1; transform: translate(-50%, -50%) rotate(0deg); }
+    78% { opacity: 1; transform: translate(calc(-50% + 170px), -50%) rotate(0deg); }
+    100% { opacity: 0; transform: translate(calc(-50% + 220px), -50%) rotate(0deg); }
+  }
+
+  @keyframes truckCabLeftToRight {
+    0%, 28% { left: 6px; top: 8px; opacity: 1; }
+    40%, 62% { left: 24px; top: 8px; opacity: .82; }
+    76%, 100% { left: 42px; top: 8px; opacity: 1; }
+  }
+
+  @keyframes truckTrailerLeftToRight {
+    0%, 28% { left: 23px; top: 9px; opacity: 1; }
+    40%, 62% { left: 14px; top: 9px; opacity: .86; }
+    76%, 100% { left: 4px; top: 9px; opacity: 1; }
+  }
+
+  @keyframes truckContainerLeftToRight {
+    0%, 28% { left: 28px; top: 11px; opacity: 1; }
+    40%, 62% { left: 19px; top: 11px; opacity: .88; }
+    76%, 100% { left: 8px; top: 11px; opacity: 1; }
+  }
+
+  @keyframes truckLightLeftToRight {
+    0%, 28% { opacity: 1; transform: translateX(-58px); }
+    38%, 64% { opacity: 0; transform: translateX(-29px); }
+    76%, 100% { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes truckCabRightToLeft {
+    0%, 24% { left: 42px; top: 8px; opacity: 1; }
+    38%, 62% { left: 24px; top: 8px; opacity: .82; }
+    78%, 100% { left: 6px; top: 8px; opacity: 1; }
+  }
+
+  @keyframes truckTrailerRightToLeft {
+    0%, 24% { left: 4px; top: 9px; opacity: 1; }
+    38%, 62% { left: 14px; top: 9px; opacity: .86; }
+    78%, 100% { left: 23px; top: 9px; opacity: 1; }
+  }
+
+  @keyframes truckContainerRightToLeft {
+    0%, 24% { left: 8px; top: 11px; opacity: 1; }
+    38%, 62% { left: 19px; top: 11px; opacity: .88; }
+    78%, 100% { left: 28px; top: 11px; opacity: 1; }
+  }
+
+  @keyframes truckLightRightToLeft {
+    0%, 24% { opacity: 1; transform: translateX(0); }
+    38%, 64% { opacity: 0; transform: translateX(-29px); }
+    78%, 100% { opacity: 1; transform: translateX(-58px); }
+  }
+
+  @keyframes wheelHideDuringTurn {
+    0%, 28% { opacity: 1; }
+    38%, 64% { opacity: 0; }
+    76%, 100% { opacity: 1; }
+  }
+
+  @keyframes truckPerspectiveDuringTurn {
+    0%, 28% { opacity: 1; }
+    38%, 64% { opacity: 0; }
+    76%, 100% { opacity: 1; }
+  }
+
+  @keyframes directDispatch {
+    0% { transform: translate(calc(-50% - 46px), -50%) rotate(var(--r)); opacity: .62; }
+    100% { transform: translate(-50%, -50%) rotate(var(--r)); opacity: 1; }
+  }
+
+  @keyframes heavyProcess {
+    0%, 100% { transform: translate(-50%, -50%) rotate(var(--r)); }
+    28% { transform: translate(calc(-50% + 7px), calc(-50% - 2px)) rotate(var(--r)); }
+    58% { transform: translate(calc(-50% - 5px), calc(-50% + 2px)) rotate(var(--r)); }
+    78% { transform: translate(calc(-50% + 4px), calc(-50% + 1px)) rotate(var(--r)); }
+  }
+
+  @keyframes focusedProcess {
+    0%, 100% { transform: translate(-50%, -50%) rotate(var(--r)); }
+    50% { transform: translate(calc(-50% + 11px), -50%) rotate(var(--r)); }
+  }
+
+  @keyframes truckDockManual {
+    0% { opacity: .72; transform: translate(calc(-50% - 22px), -50%) rotate(var(--r)); }
+    24% { opacity: 1; transform: translate(calc(-50% - 6px), -50%) rotate(var(--r)); }
+    34%, 82% { opacity: 1; transform: translate(-50%, -50%) rotate(var(--r)); }
+    88% { transform: translate(calc(-50% + 3px), calc(-50% + 1px)) rotate(var(--r)); }
+    100% { opacity: .78; transform: translate(calc(-50% + 24px), -50%) rotate(var(--r)); }
+  }
+
+  @keyframes truckDockModel {
+    0% { opacity: .74; transform: translate(calc(-50% - 20px), -50%) rotate(var(--r)); }
+    22% { opacity: 1; transform: translate(calc(-50% - 4px), -50%) rotate(var(--r)); }
+    32%, 78% { opacity: 1; transform: translate(-50%, -50%) rotate(var(--r)); }
+    100% { opacity: .82; transform: translate(calc(-50% + 28px), -50%) rotate(var(--r)); }
+  }
+
+  @keyframes slowReturn {
+    0% { opacity: 0; transform: translate(-50%, -50%) rotate(var(--r)); }
+    10% { opacity: 1; transform: translate(-50%, -50%) rotate(var(--r)); }
+    28% { transform: translate(calc(-50% - 8px), calc(-50% + 8px)) rotate(calc(var(--r) + 5deg)); }
+    48% { transform: translate(calc(-50% - 24px), calc(-50% + 14px)) rotate(calc(var(--r) + 1deg)); }
+    68% { transform: translate(calc(-50% - 38px), calc(-50% + 6px)) rotate(calc(var(--r) - 5deg)); }
+    86% { opacity: 1; transform: translate(calc(-50% - 46px), -50%) rotate(var(--r)); }
+    100% { opacity: 0; transform: translate(calc(-50% - 54px), -50%) rotate(var(--r)); }
+  }
+
+  @keyframes quickReturn {
+    0% { opacity: 0; transform: translate(-50%, -50%) rotate(var(--r)); }
+    8% { opacity: 1; transform: translate(-50%, -50%) rotate(var(--r)); }
+    24% { transform: translate(calc(-50% - 7px), calc(-50% + 7px)) rotate(calc(var(--r) + 5deg)); }
+    40% { transform: translate(calc(-50% - 20px), calc(-50% + 12px)) rotate(calc(var(--r) + 1deg)); }
+    56% { transform: translate(calc(-50% - 32px), calc(-50% + 6px)) rotate(calc(var(--r) - 5deg)); }
+    72% { opacity: 1; transform: translate(calc(-50% - 42px), -50%) rotate(var(--r)); }
+    100% { opacity: 0; transform: translate(calc(-50% - 50px), -50%) rotate(var(--r)); }
+  }
+
+  .report-stage {
+    padding: 24px;
+    display: grid;
+    align-content: center;
+  }
+
+  .report-card {
+    overflow: hidden;
+    border: 1px solid rgba(211,221,230,.92);
+    border-radius: 8px;
+    background: rgba(255,255,255,.95);
+    box-shadow: 0 16px 36px rgba(20,33,47,.15);
+  }
+
+  .report-card header {
+    padding: 18px 20px;
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    align-items: center;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .report-card h2 {
+    font-size: 24px;
+  }
+
+  .report-card header p {
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .advantage {
+    min-width: 170px;
+    min-height: 52px;
+    display: grid;
+    place-items: center;
+    border-radius: 8px;
+    color: var(--teal);
+    background: var(--teal-soft);
+    font-size: 24px;
+    font-weight: 900;
+  }
+
+  .report-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+
+  .report-table th,
+  .report-table td {
+    padding: 13px 16px;
+    border-bottom: 1px solid #e4ebf0;
+    text-align: left;
+  }
+
+  .report-table th {
+    color: var(--muted);
+    background: #f6f8fa;
+    font-size: 12px;
+    text-transform: uppercase;
+  }
+
+  .report-table td:nth-child(2) {
+    color: var(--red);
+    font-weight: 850;
+  }
+
+  .report-table td:nth-child(3) {
+    color: var(--teal);
+    font-weight: 850;
+  }
+
+  .report-table td:nth-child(4) {
+    color: var(--green);
+    font-weight: 900;
+  }
+
+  .side {
+    display: grid;
+    gap: 12px;
+  }
+
+  .side-note {
+    padding: 2px 4px 4px;
+    color: var(--dark);
+    font-size: 15px;
+    line-height: 1.55;
+    font-weight: 850;
+  }
+
+  .side-card {
+    padding: 12px;
+    display: grid;
+    gap: 10px;
+  }
+
+  .side-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .side-head h2 {
+    font-size: 16px;
+  }
+
+  .side-head span {
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 830;
+  }
+
+  .decision-grid {
+    display: grid;
+    gap: 8px;
+  }
+
+  .decision-row {
+    min-height: 44px;
+    padding: 9px 10px;
+    display: grid;
+    grid-template-columns: 92px 1fr;
+    gap: 10px;
+    align-items: center;
+    border: 1px solid #e1e8ee;
+    border-radius: 7px;
+    background: var(--soft);
+  }
+
+  .decision-row span {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 850;
+    text-transform: uppercase;
+  }
+
+  .decision-row strong {
+    color: var(--dark);
+    font-size: 13px;
+    line-height: 1.24;
+  }
+
+  .mini-report {
+    display: grid;
+    gap: 8px;
+  }
+
+  .mini-row {
+    display: grid;
+    grid-template-columns: 1fr 72px 72px;
+    gap: 6px;
+    align-items: center;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 850;
+  }
+
+  .mini-row b {
+    min-height: 26px;
+    display: grid;
+    place-items: center;
+    border-radius: 7px;
+    background: #f2f5f7;
+    color: var(--dark);
+    font-size: 12px;
+  }
+
+  .mini-row b.manual { color: var(--red); background: var(--red-soft); }
+  .mini-row b.model { color: var(--teal); background: var(--teal-soft); }
+
+  .heat-strip {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 5px;
+  }
+
+  .heat-cell {
+    aspect-ratio: 1 / .72;
+    border: 1px solid #d3dde6;
+    border-radius: 4px;
+    background: #eef3f6;
+    transition: background .35s, border-color .35s, transform .35s;
+  }
+
+  .heat-cell.input { background: var(--blue-soft); border-color: #b8d0e4; }
+  .heat-cell.watch { background: var(--amber-soft); border-color: #e2bf8d; }
+  .heat-cell.risk { background: #f3b8b0; border-color: var(--red); transform: scale(1.08); }
+  .heat-cell.clear { background: var(--green-soft); border-color: #a9d6b6; }
+
+  .heat-labels {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .heat-labels span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .dot {
+    width: 11px;
+    height: 11px;
+    display: inline-block;
+    border-radius: 999px;
+  }
+
+  .bump {
+    animation: bump .42s cubic-bezier(.18,.78,.18,1);
+  }
+
+  @keyframes bump {
+    50% { transform: translateY(-4px); box-shadow: 0 16px 32px rgba(25,38,51,.15); }
+  }
+
+  @media (max-width: 1260px) {
+    .topbar,
+    .layout {
+      grid-template-columns: 1fr;
+    }
+
+    .side {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 860px) {
+    .app { padding: 10px; }
+    .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .stage-buttons { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .stage-head { grid-template-columns: 60px 1fr; }
+    .state-pill { grid-column: 1 / -1; justify-self: start; }
+    .stage-screen { min-height: 720px; }
+    .split-stage { grid-template-columns: 1fr; }
+    .side { grid-template-columns: 1fr; }
+    .report-card header { display: grid; }
+  }
+
+  @media print {
+    body::before,
+    body::after { display: none; }
+    body { background: #fff; }
+    .buttons,
+    .workflow input { display: none; }
+    .app { max-width: none; }
+  }
+</style>
+</head>
+<body>
+<div class="app" id="app" data-phase="data" data-view="single" data-risk="0">
+  <header class="topbar">
+    <section class="card brand">
+      <h1>Simulated Port Operations (Human vs Model Optimization)</h1>
+    </section>
+
+    <section class="metric-grid" aria-label="Key comparison metrics">
+      <article class="metric"><label>Alarm pair</label><strong id="alarmMetric">Normal</strong><span id="alarmUnit">live state</span></article>
+      <article class="metric"><label>QC called</label><strong id="qcMetric">0</strong><span>units</span></article>
+      <article class="metric"><label>Fixed crane</label><strong id="rtgMetric">0</strong><span>moves</span></article>
+      <article class="metric"><label>Cycle time</label><strong id="timeMetric">0</strong><span>minutes</span></article>
+    </section>
+
+    <section class="card control-card">
+      <div class="clock-line">
+        <div class="clock" id="clock">08:00</div>
+        <div class="gain"><span>Model advantage</span><strong id="gainPct">0%</strong></div>
+      </div>
+      <div class="buttons">
+        <button class="primary" id="playBtn" type="button" aria-pressed="false">Play</button>
+        <button id="resetBtn" type="button">Reset</button>
+        <button id="shotBtn" type="button">Shot</button>
+      </div>
+    </section>
+  </header>
+
+  <section class="workflow">
+    <input id="stageSlider" type="range" min="0" max="4" step="1" value="0" aria-label="Select workflow stage" />
+    <div class="stage-buttons" id="stageButtons"></div>
+  </section>
+
+  <main class="layout">
+    <section class="stage-shell">
+      <div class="stage-head">
+        <div class="stage-no" id="stageNo">1</div>
+        <div>
+          <h2 id="stageTitle">Modeling &amp; Data collecting</h2>
+          <p id="stageSubtitle">All equipment works normally while yard, lane and equipment states are collected.</p>
+        </div>
+        <div class="state-pill" id="statePill">Normal operation</div>
+      </div>
+
+      <div class="stage-screen" id="stageScreen">
+        <section class="single-stage">
+          <div class="single-card">
+            <div class="work-map">
+              <div class="map-sea"></div>
+              <div class="quay"></div>
+              <div class="ship"><span class="bridge"></span><span class="containers c1"></span><span class="containers c2"></span><span class="containers c3"></span><span class="containers c4"></span><span class="containers c5"></span><span class="deck-rail"></span><span class="bow-detail"></span><span class="hull-stripe"></span></div>
+              <div class="road top"></div>
+              <div class="road bottom"></div>
+              <div class="yard yA">A</div><div class="yard yB">B</div><div class="yard yC">C</div><div class="yard yD">D</div>
+              <div class="yard yE">E</div><div class="yard yF">F</div><div class="yard yG">G</div><div class="yard yH">H</div>
+              <div class="qc free-qc called" style="--x:37%;--y:48%;--r:0deg;--delay:-.3s"><span class="base"></span><span class="cab"></span><span class="mast"></span><span class="boom"></span><span class="hook"></span><span class="wheel w1"></span><span class="wheel w2"></span></div>
+              <div class="qc free-qc called" style="--x:57%;--y:47%;--r:0deg;--delay:-2.4s"><span class="base"></span><span class="cab"></span><span class="mast"></span><span class="boom"></span><span class="hook"></span><span class="wheel w1"></span><span class="wheel w2"></span></div>
+              <div class="qc free-qc called" style="--x:67%;--y:73%;--r:0deg;--delay:-1.3s"><span class="base"></span><span class="cab"></span><span class="mast"></span><span class="boom"></span><span class="hook"></span><span class="wheel w1"></span><span class="wheel w2"></span></div>
+              <div class="qc free-qc called" style="--x:87%;--y:77%;--r:0deg;--delay:-3.3s"><span class="base"></span><span class="cab"></span><span class="mast"></span><span class="boom"></span><span class="hook"></span><span class="wheel w1"></span><span class="wheel w2"></span></div>
+              <div class="rtg quay-crane called" style="--x:27%;--y:45%;--r:0deg;"><span class="top"></span><span class="leg l1"></span><span class="leg l2"></span><span class="spreader"></span><span class="load"></span></div>
+              <div class="rtg yard-crane called" style="--x:75%;--y:50%;--r:0deg;"><span class="top"></span><span class="leg l1"></span><span class="leg l2"></span><span class="spreader"></span><span class="load"></span></div>
+              <div class="truck moving" style="--x:45%;--y:55%;--r:0deg;--delay:-1.0s"><span class="trailer"></span><span class="container"></span><span class="cab"></span><span class="light"></span><span class="wheel w1"></span><span class="wheel w2"></span><span class="wheel w3"></span></div>
+              <div class="truck moving" style="--x:78%;--y:77%;--r:0deg;--delay:-3.8s"><span class="trailer"></span><span class="container"></span><span class="cab"></span><span class="light"></span><span class="wheel w1"></span><span class="wheel w2"></span><span class="wheel w3"></span></div>
+            </div>
+            <div class="single-title">
+              <span>Stage 1</span>
+              <strong>Modeling &amp; Data collecting</strong>
+              <p>QC units move freely between yard areas. The system records work state before the split comparison begins.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="split-stage">
+          <article class="pane manual" id="manualPane">
+            <div class="pane-head">
+              <div><strong id="manualTitle">2.1 Human observe</strong><span id="manualText">Manual observation confirms congestion after the warning is visible.</span></div>
+              <div class="time-badge" id="manualTime">T+05</div>
+            </div>
+            <div class="work-map">
+              <div class="map-sea"></div><div class="quay"></div><div class="ship"><span class="bridge"></span><span class="containers c1"></span><span class="containers c2"></span><span class="containers c3"></span><span class="containers c4"></span><span class="containers c5"></span><span class="deck-rail"></span><span class="bow-detail"></span><span class="hull-stripe"></span></div><div class="road top"></div><div class="road bottom"></div>
+              <div class="yard yA">A</div><div class="yard yB">B</div><div class="yard yC">C</div><div class="yard yD risk">D</div>
+              <div class="yard yE">E</div><div class="yard yF">F</div><div class="yard yG">G</div><div class="yard yH">H</div>
+              <div class="cargo-transfer"><span class="claw"></span><span class="cargo-box"></span></div>
+              <svg class="route-line" viewBox="0 0 100 100" preserveAspectRatio="none">
+                <path d="M 36 55 H 88" />
+                <path d="M 42 84 H 88" />
+                <path d="M 58 78 H 92" />
+              </svg>
+              <svg class="return-line" viewBox="0 0 100 100" preserveAspectRatio="none">
+                <path d="M 88 55 H 38" />
+                <path d="M 88 84 H 42" />
+              </svg>
+              <div class="turn-marker t1"></div><div class="turn-marker t2"></div>
+              <div id="hqc0" class="qc called"><span class="base"></span><span class="cab"></span><span class="mast"></span><span class="boom"></span><span class="hook"></span><span class="wheel w1"></span><span class="wheel w2"></span></div>
+              <div id="hqc1" class="qc called"><span class="base"></span><span class="cab"></span><span class="mast"></span><span class="boom"></span><span class="hook"></span><span class="wheel w1"></span><span class="wheel w2"></span></div>
+              <div id="hqc2" class="qc called"><span class="base"></span><span class="cab"></span><span class="mast"></span><span class="boom"></span><span class="hook"></span><span class="wheel w1"></span><span class="wheel w2"></span></div>
+              <div id="hqc3" class="qc called"><span class="base"></span><span class="cab"></span><span class="mast"></span><span class="boom"></span><span class="hook"></span><span class="wheel w1"></span><span class="wheel w2"></span></div>
+              <div id="hqc4" class="qc called"><span class="base"></span><span class="cab"></span><span class="mast"></span><span class="boom"></span><span class="hook"></span><span class="wheel w1"></span><span class="wheel w2"></span></div>
+              <div id="hshore" class="rtg quay-crane called"><span class="top"></span><span class="leg l1"></span><span class="leg l2"></span><span class="spreader"></span><span class="load"></span></div>
+              <div id="hrtg" class="rtg yard-crane called"><span class="top"></span><span class="leg l1"></span><span class="leg l2"></span><span class="spreader"></span><span class="load"></span></div>
+              <div id="htruck0" class="truck manual-truck"><span class="trailer"></span><span class="container"></span><span class="cab"></span><span class="light"></span><span class="wheel w1"></span><span class="wheel w2"></span><span class="wheel w3"></span></div>
+              <div id="htruck1" class="truck manual-truck"><span class="trailer"></span><span class="container"></span><span class="cab"></span><span class="light"></span><span class="wheel w1"></span><span class="wheel w2"></span><span class="wheel w3"></span></div>
+              <div id="htruck2" class="truck manual-truck"><span class="trailer"></span><span class="container"></span><span class="cab"></span><span class="light"></span><span class="wheel w1"></span><span class="wheel w2"></span><span class="wheel w3"></span></div>
+            </div>
+            <div class="status-note">
+              <div><span>Alarm</span><strong id="manualAlarm">T+05m</strong></div>
+              <div><span>QC call</span><strong id="manualCall">5 units</strong></div>
+              <div><span>Effect</span><strong id="manualEffect">late reaction</strong></div>
+            </div>
+          </article>
+
+          <article class="pane model" id="modelPane">
+            <div class="pane-head">
+              <div><strong id="modelTitle">2.2 Model observe</strong><span id="modelText">The model triggers earlier and calls only QC already moving toward the target yard.</span></div>
+              <div class="time-badge" id="modelTime">T+02</div>
+            </div>
+            <div class="work-map">
+              <div class="map-sea"></div><div class="quay"></div><div class="ship"><span class="bridge"></span><span class="containers c1"></span><span class="containers c2"></span><span class="containers c3"></span><span class="containers c4"></span><span class="containers c5"></span><span class="deck-rail"></span><span class="bow-detail"></span><span class="hull-stripe"></span></div><div class="road top"></div><div class="road bottom"></div>
+              <div class="yard yA">A</div><div class="yard yB">B</div><div class="yard yC">C</div><div class="yard yD risk">D</div>
+              <div class="yard yE">E</div><div class="yard yF">F</div><div class="yard yG clear">G</div><div class="yard yH clear">H</div>
+              <div class="cargo-transfer"><span class="claw"></span><span class="cargo-box"></span></div>
+              <svg class="route-line" viewBox="0 0 100 100" preserveAspectRatio="none">
+                <path d="M 68 55 H 88" />
+                <path d="M 70 84 H 92" />
+              </svg>
+              <svg class="return-line" viewBox="0 0 100 100" preserveAspectRatio="none">
+                <path d="M 88 84 H 68" />
+              </svg>
+              <div id="mqc0" class="qc called"><span class="base"></span><span class="cab"></span><span class="mast"></span><span class="boom"></span><span class="hook"></span><span class="wheel w1"></span><span class="wheel w2"></span></div>
+              <div id="mqc1" class="qc called"><span class="base"></span><span class="cab"></span><span class="mast"></span><span class="boom"></span><span class="hook"></span><span class="wheel w1"></span><span class="wheel w2"></span></div>
+              <div id="mqc2" class="qc dim"><span class="base"></span><span class="cab"></span><span class="mast"></span><span class="boom"></span><span class="hook"></span><span class="wheel w1"></span><span class="wheel w2"></span></div>
+              <div id="mshore" class="rtg quay-crane called"><span class="top"></span><span class="leg l1"></span><span class="leg l2"></span><span class="spreader"></span><span class="load"></span></div>
+              <div id="mrtg" class="rtg yard-crane called"><span class="top"></span><span class="leg l1"></span><span class="leg l2"></span><span class="spreader"></span><span class="load"></span></div>
+              <div id="mtruck0" class="truck model-truck"><span class="trailer"></span><span class="container"></span><span class="cab"></span><span class="light"></span><span class="wheel w1"></span><span class="wheel w2"></span><span class="wheel w3"></span></div>
+              <div id="mtruck1" class="truck model-truck"><span class="trailer"></span><span class="container"></span><span class="cab"></span><span class="light"></span><span class="wheel w1"></span><span class="wheel w2"></span><span class="wheel w3"></span></div>
+              <div id="mtruck2" class="truck model-truck dim"><span class="trailer"></span><span class="container"></span><span class="cab"></span><span class="light"></span><span class="wheel w1"></span><span class="wheel w2"></span><span class="wheel w3"></span></div>
+            </div>
+            <div class="status-note">
+              <div><span>Alarm</span><strong id="modelAlarm">T+02m</strong></div>
+              <div><span>QC call</span><strong id="modelCall">2 units</strong></div>
+              <div><span>Effect</span><strong id="modelEffect">predictive</strong></div>
+            </div>
+          </article>
+        </section>
+
+        <section class="report-stage">
+          <div class="report-card">
+            <header>
+              <div>
+                <h2>Stage 5 Dispatch Report</h2>
+                <p>Observe, processing and back-to-work stages are merged into one comparison table.</p>
+              </div>
+              <div class="advantage">28m saved</div>
+            </header>
+            <table class="report-table">
+              <thead>
+                <tr><th>Parameter</th><th>Human experience</th><th>Model guided</th><th>Advantage</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>Alarm trigger</td><td>T+05 min</td><td>T+02 min</td><td>3 min earlier</td></tr>
+                <tr><td>QC mobilised</td><td>5 units</td><td>2 units</td><td>60% fewer</td></tr>
+                <tr><td>Fixed crane handling moves</td><td>9 moves</td><td>5 moves</td><td>44% fewer</td></tr>
+                <tr><td>Congestion processing time</td><td>42 min</td><td>28 min</td><td>14 min saved</td></tr>
+                <tr><td>Back to original workflow</td><td>18 min</td><td>7 min</td><td>11 min faster</td></tr>
+                <tr><td>Total recovery window</td><td>65 min</td><td>37 min</td><td>28 min saved</td></tr>
+                <tr><td>Impact on normal work</td><td>High interruption</td><td>Low interruption</td><td>stable flow</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <aside class="side">
+      <p class="side-note">With model-based efficiency prediction, central control can allocate port resources more effectively.</p>
+
+      <section class="side-card">
+        <div class="side-head">
+          <h2>Comparison Snapshot</h2>
+          <span id="snapshotTag">live</span>
+        </div>
+        <div class="mini-report">
+          <div class="mini-row"><span>Alarm</span><b class="manual" id="miniManualAlarm">-</b><b class="model" id="miniModelAlarm">-</b></div>
+          <div class="mini-row"><span>QC</span><b class="manual" id="miniManualQc">0</b><b class="model" id="miniModelQc">0</b></div>
+          <div class="mini-row"><span>Crane</span><b class="manual" id="miniManualRtg">0</b><b class="model" id="miniModelRtg">0</b></div>
+          <div class="mini-row"><span>Time</span><b class="manual" id="miniManualTime">0</b><b class="model" id="miniModelTime">0</b></div>
+        </div>
+      </section>
+
+      <section class="side-card">
+        <div class="side-head">
+          <h2>Zone Heat</h2>
+          <span>tensor slice</span>
+        </div>
+        <div class="heat-strip" id="heatStrip"></div>
+        <div class="heat-labels">
+          <span><i class="dot" style="background:var(--blue-soft)"></i>input</span>
+          <span><i class="dot" style="background:var(--amber-soft)"></i>watch</span>
+          <span><i class="dot" style="background:#f3b8b0"></i>risk</span>
+          <span><i class="dot" style="background:var(--green-soft)"></i>clear</span>
+        </div>
+      </section>
+    </aside>
+  </main>
+</div>
+
+<script>
+const stages = [
+  {
+    no: "1",
+    label: "Modeling",
+    caption: "data collecting",
+    phase: "data",
+    section: "data",
+    view: "single",
+    time: "08:00",
+    title: "1 Modeling & Data collecting",
+    subtitle: "All equipment works normally while yard, lane and equipment states are collected.",
+    state: "Normal operation",
+    alarmMetric: "Normal",
+    alarmUnit: "live state",
+    qc: "0",
+    rtg: "0",
+    work: "0",
+    gain: "0",
+    logicTag: "section 1",
+    branch: "Unified data layer",
+    resource: "QC free movement",
+    message: "QC units move across yards while fixed cranes keep their bases in place.",
+    snapshot: "live",
+    mini: ["-","-","0","0","0","0","0","0"],
+    focus: [72, 50],
+    risk: 0,
+    classes: { manual: "dimmed", model: "dimmed" },
+    heat: { input: [7,8,13,14,20], watch: [], risk: [], clear: [] }
+  },
+  {
+    no: "2",
+    label: "Observe",
+    caption: "2.1 / 2.2",
+    phase: "observe-compare",
+    section: "observe",
+    view: "split",
+    time: "12:35",
+    title: "2 Observe comparison",
+    subtitle: "2.1 human observation and 2.2 model observation appear in parallel.",
+    state: "Parallel warning",
+    alarmMetric: "T+05 / T+02",
+    alarmUnit: "human / model",
+    qc: "5 / 2",
+    rtg: "standby",
+    work: "warning",
+    gain: "+3m",
+    logicTag: "section 2",
+    branch: "Observe comparison",
+    resource: "Human wide call vs model trajectory match",
+    message: "Human control calls a surrounding QC ring; the model calls only QC already moving toward Yard D.",
+    snapshot: "observe pair",
+    mini: ["T+05","T+02","5","2","standby","standby","-","-"],
+    focus: [78, 45],
+    risk: 1,
+    classes: { manual: "active show-routes show-turns", model: "active show-routes" },
+    heat: { input: [6,7,8,13,14], watch: [20,27], risk: [21,22], clear: [28,29,34] }
+  },
+  {
+    no: "3",
+    label: "Processing",
+    caption: "3.1 / 3.2",
+    phase: "process-compare",
+    section: "process",
+    view: "split",
+    time: "13:10",
+    title: "3 Processing comparison",
+    subtitle: "3.1 human processing and 3.2 model processing handle the same congestion.",
+    state: "Processing",
+    alarmMetric: "T+05 / T+02",
+    alarmUnit: "start gap",
+    qc: "5 / 2",
+    rtg: "9 / 5",
+    work: "42 / 28",
+    gain: "+14m",
+    logicTag: "section 3",
+    branch: "Processing comparison",
+    resource: "Heavy call vs focused call",
+    message: "The human method solves the queue with more QC and fixed-crane moves; the model uses fewer resources.",
+    snapshot: "processing pair",
+    mini: ["T+05","T+02","5","2","9","5","42","28"],
+    focus: [78, 45],
+    risk: 1,
+    classes: { manual: "active show-routes", model: "active show-routes" },
+    heat: { input: [5,6,7,12,13], watch: [19,20,27], risk: [21,22], clear: [28,29,34] }
+  },
+  {
+    no: "4",
+    label: "Back",
+    caption: "4.1 / 4.2",
+    phase: "back-compare",
+    section: "back",
+    view: "split",
+    time: "13:28",
+    title: "4 Back-to-work comparison",
+    subtitle: "4.1 human back and 4.2 model back are separated from processing.",
+    state: "Returning",
+    alarmMetric: "after clear",
+    alarmUnit: "back stage",
+    qc: "5 / 2",
+    rtg: "fixed base",
+    work: "18 / 7",
+    gain: "+11m",
+    logicTag: "section 4",
+    branch: "Back-to-work comparison",
+    resource: "Slow return vs fast return",
+    message: "The human method returns slowly because more QC were pulled away; the model restores normal flow faster.",
+    snapshot: "back pair",
+    mini: ["T+05","T+02","5","2","fixed","fixed","18","7"],
+    focus: [70, 60],
+    risk: 0,
+    classes: { manual: "active show-return", model: "active show-return" },
+    heat: { input: [5,6,12,13], watch: [20], risk: [], clear: [21,27,28,29,34] }
+  },
+  {
+    no: "5",
+    label: "Report",
+    caption: "merge",
+    phase: "report",
+    section: "report",
+    view: "report",
+    time: "13:35",
+    title: "5 Merged report",
+    subtitle: "Observe, processing and back-to-work windows are merged into one evaluation table.",
+    state: "Report ready",
+    alarmMetric: "3m",
+    alarmUnit: "earlier",
+    qc: "-60%",
+    rtg: "-44%",
+    work: "-28",
+    gain: "28m",
+    logicTag: "section 5",
+    branch: "Merged evidence",
+    resource: "Model uses fewer moving resources",
+    message: "The final table shows earlier alarm, fewer QC, fewer fixed-crane moves and faster return to normal work.",
+    snapshot: "final report",
+    mini: ["T+05","T+02","5","2","9","5","65","37"],
+    focus: [78, 45],
+    risk: 0,
+    classes: { manual: "", model: "" },
+    heat: { input: [5,6,12,13], watch: [], risk: [], clear: [20,21,27,28,29,34] }
+  }
+];
+
+const app = document.getElementById("app");
+const stageScreen = document.getElementById("stageScreen");
+const slider = document.getElementById("stageSlider");
+const stageButtons = document.getElementById("stageButtons");
+const heatStrip = document.getElementById("heatStrip");
+const playBtn = document.getElementById("playBtn");
+const resetBtn = document.getElementById("resetBtn");
+const shotBtn = document.getElementById("shotBtn");
+const REPORT_PLAY_MS = 4200;
+const MIN_STAGE_PLAY_MS = 1200;
+let timer = null;
+
+const ids = {
+  alarmMetric: "alarmMetric",
+  alarmUnit: "alarmUnit",
+  qcMetric: "qcMetric",
+  rtgMetric: "rtgMetric",
+  timeMetric: "timeMetric",
+  clock: "clock",
+  gainPct: "gainPct",
+  stageNo: "stageNo",
+  stageTitle: "stageTitle",
+  stageSubtitle: "stageSubtitle",
+  statePill: "statePill",
+  snapshotTag: "snapshotTag",
+  miniManualAlarm: "miniManualAlarm",
+  miniModelAlarm: "miniModelAlarm",
+  miniManualQc: "miniManualQc",
+  miniModelQc: "miniModelQc",
+  miniManualRtg: "miniManualRtg",
+  miniModelRtg: "miniModelRtg",
+  miniManualTime: "miniManualTime",
+  miniModelTime: "miniModelTime"
+};
+
+const get = id => document.getElementById(id);
+const setText = (id, value) => { get(id).textContent = value; };
+
+const humanPositions = {
+  observe: [[45,48,0],[64,47,0],[83,46,0],[56,75,0],[92,78,0]],
+  process: [[66,47,0],[78,76,0],[93,47,0],[62,78,0],[92,78,0]],
+  back: [[49,48,0],[66,47,0],[83,46,0],[62,76,0],[90,78,0]]
+};
+
+const modelPositions = {
+  observe: [[66,47,0],[75,76,0],[46,76,0]],
+  process: [[68,48,0],[72,76,0],[46,76,0]],
+  back: [[60,48,0],[82,76,0],[46,76,0]]
+};
+
+const humanTruckPositions = {
+  observe: [[56,55,0],[76,77,0],[92,55,0]],
+  process: [[71,55,0],[86,53,0],[74,84,0]],
+  back: [[71,55,0],[86,53,0],[74,84,0]]
+};
+
+const modelTruckPositions = {
+  observe: [[70,55,0],[74,84,0],[58,84,0]],
+  process: [[82,53,0],[74,84,0],[58,84,0]],
+  back: [[82,53,0],[74,84,0],[58,84,0]]
+};
+
+function placeUnit(id, item) {
+  const [x, y, r] = item;
+  const el = get(id);
+  el.style.setProperty("--x", `${x}%`);
+  el.style.setProperty("--y", `${y}%`);
+  el.style.setProperty("--r", `${r}deg`);
+}
+
+function setCranePositions(stage) {
+  const key = stage.section === "process" ? "process" : stage.section === "back" ? "back" : "observe";
+  const h = humanPositions[key];
+  const m = modelPositions[key];
+  h.forEach((item, index) => placeUnit(`hqc${index}`, item));
+  m.forEach((item, index) => placeUnit(`mqc${index}`, item));
+  placeUnit("hshore", [27,44,0]);
+  placeUnit("hrtg", [75,50,0]);
+  placeUnit("mshore", [27,44,0]);
+  placeUnit("mrtg", [75,50,0]);
+  const shoreTrolley = stage.section === "process" ? "7px" : stage.section === "back" ? "-5px" : "0px";
+  const yardTrolley = stage.section === "process" ? "10px" : stage.section === "back" ? "-8px" : "0px";
+  ["hshore","mshore"].forEach(id => get(id).style.setProperty("--trolley", shoreTrolley));
+  ["hrtg","mrtg"].forEach(id => get(id).style.setProperty("--trolley", yardTrolley));
+}
+
+function setTruckPositions(stage) {
+  const key = stage.section === "process" ? "process" : stage.section === "back" ? "back" : "observe";
+  const h = humanTruckPositions[key];
+  const m = modelTruckPositions[key];
+  h.forEach((item, index) => placeUnit(`htruck${index}`, item));
+  m.forEach((item, index) => placeUnit(`mtruck${index}`, item));
+
+  const humanActive = stage.view === "split";
+  const modelActive = stage.view === "split";
+  ["htruck0","htruck1"].forEach(id => {
+    get(id).className = humanActive ? "truck manual-truck moving" : "truck manual-truck dim";
+  });
+  get("htruck2").className =
+    stage.section === "observe" || stage.section === "back" ? "truck blue-truck moving" :
+    stage.section === "process" ? "truck blue-truck" :
+    "truck blue-truck dim";
+  get("mtruck0").className = modelActive ? "truck green-truck moving" : "truck green-truck dim";
+  get("mtruck1").className =
+    stage.section === "observe" ? "truck blue-truck moving" :
+    stage.section === "process" ? "truck blue-truck" :
+    stage.section === "back" ? "truck blue-truck moving" :
+    "truck blue-truck dim";
+  get("mtruck2").className = "truck green-truck dim";
+}
+
+function setHeat(stage) {
+  [...heatStrip.children].forEach((cell, index) => {
+    cell.className = "heat-cell";
+    if (stage.heat.input.includes(index)) cell.classList.add("input");
+    if (stage.heat.watch.includes(index)) cell.className = "heat-cell watch";
+    if (stage.heat.risk.includes(index)) cell.className = "heat-cell risk";
+    if (stage.heat.clear.includes(index)) cell.className = "heat-cell clear";
+  });
+}
+
+function setPaneState(stage) {
+  const manual = get("manualPane");
+  const model = get("modelPane");
+  manual.className = `pane manual ${stage.classes.manual}`;
+  model.className = `pane model ${stage.classes.model}`;
+
+  const paneText = {
+    observe: {
+      manualTitle: "2.1 Human observe",
+      manualText: "Manual observation confirms congestion after it is already visible, then calls a surrounding QC ring.",
+      manualTime: "T+05",
+      manualAlarm: "T+05m",
+      manualCall: "5 QC",
+      manualEffect: "wide call",
+      modelTitle: "2.2 Model observe",
+      modelText: "The model triggers earlier and selects QC already moving toward Yard D.",
+      modelTime: "T+02",
+      modelAlarm: "T+02m",
+      modelCall: "2 QC",
+      modelEffect: "early warning",
+      craneClass: "dim"
+    },
+    process: {
+      manualTitle: "3.1 Human processing",
+      manualText: "QC and fixed cranes clear congestion with a larger resource call.",
+      manualTime: "42m",
+      manualAlarm: "late start",
+      manualCall: "5 QC, 9 crane",
+      manualEffect: "high interruption",
+      modelTitle: "3.2 Model processing",
+      modelText: "Trajectory-matched QC and fixed cranes handle the same congestion with fewer moves.",
+      modelTime: "28m",
+      modelAlarm: "early start",
+      modelCall: "2 QC, 5 crane",
+      modelEffect: "focused work",
+      craneClass: "called"
+    },
+    back: {
+      manualTitle: "4.1 Human back",
+      manualText: "Because more QC were pulled away, the human method returns to the original workflow more slowly.",
+      manualTime: "18m",
+      manualAlarm: "slow return",
+      manualCall: "5 QC back",
+      manualEffect: "flow recovers late",
+      modelTitle: "4.2 Model back",
+      modelText: "The model method restores normal workflow faster because fewer QC were diverted.",
+      modelTime: "7m",
+      modelAlarm: "fast return",
+      modelCall: "2 QC back",
+      modelEffect: "flow recovers early",
+      craneClass: "dim"
+    }
+  };
+
+  const content = paneText[stage.section] || paneText.observe;
+  setText("manualTitle", content.manualTitle);
+  setText("manualText", content.manualText);
+  setText("manualTime", content.manualTime);
+  setText("manualAlarm", content.manualAlarm);
+  setText("manualCall", content.manualCall);
+  setText("manualEffect", content.manualEffect);
+
+  setText("modelTitle", content.modelTitle);
+  setText("modelText", content.modelText);
+  setText("modelTime", content.modelTime);
+  setText("modelAlarm", content.modelAlarm);
+  setText("modelCall", content.modelCall);
+  setText("modelEffect", content.modelEffect);
+  get("hshore").className = `rtg quay-crane ${content.craneClass}`;
+  get("hrtg").className = `rtg yard-crane ${content.craneClass}`;
+  get("mshore").className = `rtg quay-crane ${content.craneClass}`;
+  get("mrtg").className = `rtg yard-crane ${content.craneClass}`;
+}
+
+function setStatePill(stage) {
+  const pill = get("statePill");
+  pill.textContent = stage.state;
+  if (stage.section === "observe") {
+    pill.style.background = "var(--amber-soft)";
+    pill.style.color = "var(--amber)";
+  } else if (stage.section === "process") {
+    pill.style.background = "var(--red-soft)";
+    pill.style.color = "var(--red)";
+  } else if (stage.section === "back") {
+    pill.style.background = "var(--teal-soft)";
+    pill.style.color = "var(--teal)";
+  } else if (stage.section === "report") {
+    pill.style.background = "var(--green-soft)";
+    pill.style.color = "var(--green)";
+  } else {
+    pill.style.background = "var(--blue-soft)";
+    pill.style.color = "var(--blue)";
+  }
+}
+
+function bumpMetrics() {
+  document.querySelectorAll(".metric, .gain strong").forEach(el => {
+    el.classList.remove("bump");
+    void el.offsetWidth;
+    el.classList.add("bump");
+  });
+}
+
+function update(index) {
+  const stage = stages[index];
+  app.dataset.phase = stage.phase;
+  app.dataset.view = stage.view;
+  app.dataset.risk = stage.risk;
+  stageScreen.style.setProperty("--focus-x", `${stage.focus[0]}%`);
+  stageScreen.style.setProperty("--focus-y", `${stage.focus[1]}%`);
+
+  setText(ids.alarmMetric, stage.alarmMetric);
+  setText(ids.alarmUnit, stage.alarmUnit);
+  setText(ids.qcMetric, stage.qc);
+  setText(ids.rtgMetric, stage.rtg);
+  setText(ids.timeMetric, stage.work);
+  setText(ids.clock, stage.time);
+  setText(ids.gainPct, stage.gain);
+  setText(ids.stageNo, stage.no);
+  setText(ids.stageTitle, stage.title);
+  setText(ids.stageSubtitle, stage.subtitle);
+  setText(ids.snapshotTag, stage.snapshot);
+  setText(ids.miniManualAlarm, stage.mini[0]);
+  setText(ids.miniModelAlarm, stage.mini[1]);
+  setText(ids.miniManualQc, stage.mini[2]);
+  setText(ids.miniModelQc, stage.mini[3]);
+  setText(ids.miniManualRtg, stage.mini[4]);
+  setText(ids.miniModelRtg, stage.mini[5]);
+  setText(ids.miniManualTime, stage.mini[6]);
+  setText(ids.miniModelTime, stage.mini[7]);
+
+  setStatePill(stage);
+  setPaneState(stage);
+  setCranePositions(stage);
+  setTruckPositions(stage);
+  setHeat(stage);
+  [...stageButtons.children].forEach((button, i) => button.classList.toggle("active", i === index));
+  bumpMetrics();
+}
+
+stages.forEach((stage, index) => {
+  const button = document.createElement("button");
+  button.className = "stage-button";
+  button.type = "button";
+  button.innerHTML = `<i>${stage.no}</i><span><strong>${stage.label}</strong><small>${stage.caption}</small></span>`;
+  button.addEventListener("click", () => {
+    stopPlayback();
+    slider.value = index;
+    update(index);
+  });
+  stageButtons.appendChild(button);
+});
+
+for (let i = 0; i < 35; i++) {
+  const cell = document.createElement("div");
+  cell.className = "heat-cell";
+  heatStrip.appendChild(cell);
+}
+
+function stopPlayback() {
+  if (timer) clearTimeout(timer);
+  timer = null;
+  playBtn.textContent = "Play";
+  playBtn.setAttribute("aria-pressed", "false");
+}
+
+function parseCssTimeList(value) {
+  return value.split(",").map(item => {
+    const time = item.trim();
+    if (time.endsWith("ms")) return Number.parseFloat(time) || 0;
+    if (time.endsWith("s")) return (Number.parseFloat(time) || 0) * 1000;
+    return 0;
+  });
+}
+
+function stageRoot(stage) {
+  if (stage.view === "single") return stageScreen.querySelector(".single-stage");
+  if (stage.view === "split") return stageScreen.querySelector(".split-stage");
+  if (stage.view === "report") return stageScreen.querySelector(".report-stage");
+  return stageScreen;
+}
+
+function currentStagePlayMs(stage) {
+  if (stage.view === "report") return REPORT_PLAY_MS;
+  const root = stageRoot(stage);
+  if (!root) return REPORT_PLAY_MS;
+
+  let longest = 0;
+  [root, ...root.querySelectorAll("*")].forEach(element => {
+    const style = window.getComputedStyle(element);
+    const names = style.animationName.split(",").map(name => name.trim());
+    const durations = parseCssTimeList(style.animationDuration);
+    const delays = parseCssTimeList(style.animationDelay);
+
+    durations.forEach((duration, index) => {
+      const name = names[index] || names[names.length - 1] || "none";
+      if (!duration || name === "none") return;
+      const delay = Math.max(0, delays[index] ?? delays[delays.length - 1] ?? 0);
+      longest = Math.max(longest, duration + delay);
+    });
+  });
+
+  return Math.max(MIN_STAGE_PLAY_MS, Math.ceil(longest));
+}
+
+function scheduleNextStage() {
+  const delay = currentStagePlayMs(stages[Number(slider.value)]);
+  timer = setTimeout(() => {
+    const next = Number(slider.value) + 1;
+    if (next >= stages.length) {
+      stopPlayback();
+      return;
+    }
+    slider.value = next;
+    update(next);
+    scheduleNextStage();
+  }, delay);
+}
+
+slider.addEventListener("input", () => {
+  stopPlayback();
+  update(Number(slider.value));
+});
+
+playBtn.addEventListener("click", () => {
+  if (timer) {
+    stopPlayback();
+    return;
+  }
+  if (Number(slider.value) === stages.length - 1) {
+    slider.value = 0;
+    update(0);
+  }
+  playBtn.textContent = "Pause";
+  playBtn.setAttribute("aria-pressed", "true");
+  scheduleNextStage();
+});
+
+resetBtn.addEventListener("click", () => {
+  stopPlayback();
+  slider.value = 0;
+  update(0);
+});
+
+shotBtn.addEventListener("click", () => window.print());
+
+update(0);
+</script>
+</body>
+</html>
